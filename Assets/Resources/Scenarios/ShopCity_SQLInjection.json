@@ -1,0 +1,2019 @@
+{
+  "projectName": "ShopCity - Produktsuche sicher ausfuehren",
+  "scenarioDescription": "Synthetisches C#-Lernmodell eines Online-Shops mit .NET 8, ASP.NET Core Web API und Microsoft.Data.SqlClient fuer SQL Server. Die Tabelle Products enthaelt Id (int), Name (nvarchar(200), nicht NULL), Price (decimal) und IsPublished (bit, 0 oder 1). Nur veroeffentlichte Produkte duerfen in der oeffentlichen Suche erscheinen. name und limit stammen aus einer Client-Anfrage; correlationId wird serverseitig fuer die Anfrage erzeugt. Ein nicht ausgeschriebener API-Controller ruft ProductListService.SearchProducts auf. Dieser Service ruft ProductSearchRepository.FindByName auf, protokolliert die Trefferzahl mit AuditService.RecordSearch und delegiert Exceptions an ErrorhandlingService.CreateErrorResponse. _search, _audit und _errors sind injizierte Instanzen dieser Klassen. _logger ist ein injizierter ILogger. _connection ist eine bereits geoeffnete Microsoft.Data.SqlClient.SqlConnection; ihre Lebensdauer wird vom aufrufenden Anwendungsteil verwaltet. using var gibt Commands und Reader frei, nicht aber die von aussen bereitgestellte Connection. Genau eine rote Markierung liegt in SqlShop.Productsearch.ProductSearchRepository.FindByName: name wird direkt in SQL eingesetzt. Die Korrektur verwendet den benannten Parameter @name mit explizitem Typ NVarChar und Laenge 200, statt Eingaben mit SQL-Syntax zu verketten. Der Parameter @limit ist bereits in beiden Repository-Versionen separat als Int gebunden. SELECT TOP (@limit) begrenzt die Ergebnismenge in SQL Server, ORDER BY Id legt die Reihenfolge fest. Drei gelbe Hinweise betreffen fehlende Obergrenze fuer limit, fehlenden Audit-Kontext und interne Fehlerdetails; sie sind keine weiteren SQL-Injection-Fundstellen. Zur einfachen Lernpraesentation werden synchrone Datenbankaufrufe verwendet. Using-Direktiven (u.a. Microsoft.Data.SqlClient, System.Data und Microsoft.AspNetCore.Mvc), Klassenruempfe, API-Controller, Dependency Injection und Datenbankeinrichtung sind nicht ausgeschrieben. Fiktive Testdaten: Notebook, IsPublished=1, und Prototype, IsPublished=0. Ein Apostroph bleibt in der korrigierten Suche Bestandteil des Wertes. Alle Quellcodeausschnitte werden nur angezeigt, nie ausgefuehrt. LOC und Zeilenbereiche sind unveraenderte synthetische Visualisierungsmetriken; die Beispiele sind keine vollstaendige kompilierbare Anwendung und keine echten Scannerbefunde. Aufrufreferenzen verwenden Namespace.Klasse.Methode; callsFrom und callsTo beschreiben gegenseitig dieselben direkten Methodenaufrufe im gezeigten Code.",
+  "packages": [
+    {
+      "name": "SqlShop.Productsearch",
+      "classes": [
+        {
+          "name": "SqlShop.Productsearch.ProductSearchRepository",
+          "linesOfCode": 80,
+          "startLine": 1,
+          "endLine": 90,
+          "methods": [
+            {
+              "name": "FindByName",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [
+                "SqlShop.Searchlimits.ProductListService.SearchProducts"
+              ],
+              "callsTo": [],
+              "severity": 1,
+              "findingTitle": "Suche nach einem Produktnamen",
+              "vulnerableCode": "public List<string> FindByName(string name, int limit)\n{\n    string sql = \"SELECT TOP (@limit) Name FROM Products \"\n        + \"WHERE IsPublished = 1 AND Name = '\" + name + \"' \"\n        + \"ORDER BY Id\";\n\n    using var command = new SqlCommand(sql, _connection);\n    command.Parameters.Add(\"@limit\", SqlDbType.Int).Value = limit;\n\n    var names = new List<string>();\n    using var reader = command.ExecuteReader();\n    while (reader.Read())\n    {\n        names.Add(reader.GetString(0));\n    }\n\n    return names;\n}",
+              "fixedCode": "public List<string> FindByName(string name, int limit)\n{\n    const string sql = \"SELECT TOP (@limit) Name FROM Products \"\n        + \"WHERE IsPublished = 1 AND Name = @name \"\n        + \"ORDER BY Id\";\n\n    using var command = new SqlCommand(sql, _connection);\n    command.Parameters.Add(\"@limit\", SqlDbType.Int).Value = limit;\n    command.Parameters.Add(\"@name\", SqlDbType.NVarChar, 200).Value = name ?? \"\";\n\n    var names = new List<string>();\n    using var reader = command.ExecuteReader();\n    while (reader.Read())\n    {\n        names.Add(reader.GetString(0));\n    }\n\n    return names;\n}",
+              "explanation": "Der vom Client gelieferte Produktname wird direkt in den SQL-Text eingesetzt. Eine manipulierte Eingabe kann dadurch die WHERE-Bedingung veraendern und auch unveroeffentlichte Produkte sichtbar machen. Die Korrektur verwendet einen konstanten SQL-Text mit @name und bindet den Wert separat ueber command.Parameters.Add. Der Parametertyp NVarChar und die Laenge 200 entsprechen im Lehrmodell der Spalte Products.Name. Ein Apostroph bleibt damit Bestandteil des Werts statt SQL-Syntax zu werden. @limit wird bereits in beiden Versionen separat als Int-Parameter gebunden; das verhindert aber nicht die Injection ueber den weiterhin verketteten Namen. using var gibt SqlCommand und SqlDataReader nach der Verwendung frei; die bereits geoeffnete _connection wird vom aufrufenden Anwendungsteil verwaltet. Zusammenhang: SearchProducts ruft FindByName auf und verarbeitet die zurueckgegebene Namensliste. Mengenbegrenzung, Protokollierung und allgemeine Fehlerantworten ersetzen die Parameterbindung nicht."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 80
+    },
+    {
+      "name": "SqlShop.Orderitems",
+      "classes": [
+        {
+          "name": "SqlShop.Orderitems.OrderitemsService",
+          "linesOfCode": 97,
+          "startLine": 1,
+          "endLine": 107,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 97
+    },
+    {
+      "name": "SqlShop.Searchlimits",
+      "classes": [
+        {
+          "name": "SqlShop.Searchlimits.ProductListService",
+          "linesOfCode": 114,
+          "startLine": 1,
+          "endLine": 124,
+          "methods": [
+            {
+              "name": "SearchProducts",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 21,
+              "callsFrom": [],
+              "callsTo": [
+                "SqlShop.Productsearch.ProductSearchRepository.FindByName",
+                "SqlShop.Audit.AuditService.RecordSearch",
+                "SqlShop.Errorhandling.ErrorhandlingService.CreateErrorResponse"
+              ],
+              "severity": 2,
+              "findingTitle": "Keine Obergrenze fuer die Ergebnismenge",
+              "vulnerableCode": "public IActionResult SearchProducts(string name, int limit, string correlationId)\n{\n    try\n    {\n        var names = _search.FindByName(name, limit);\n        _audit.RecordSearch(correlationId, names.Count);\n        return new OkObjectResult(names);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "fixedCode": "public IActionResult SearchProducts(string name, int limit, string correlationId)\n{\n    try\n    {\n        limit = Math.Clamp(limit, 1, 100);\n\n        var names = _search.FindByName(name, limit);\n        _audit.RecordSearch(correlationId, names.Count);\n        return new OkObjectResult(names);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "explanation": "Diese Methode verbindet alle markierten Stellen zu einem Suchvorgang: Sie ruft FindByName mit Name und limit auf, uebergibt danach Korrelationskennung und Trefferzahl an RecordSearch und verwendet im Fehlerfall CreateErrorResponse. Der gelbe Hinweis betrifft ausschliesslich die ungepruefte Obergrenze: Ein sehr grosses limit kann eine grosse Ergebnismenge anfordern. Die Korrektur begrenzt limit mit Math.Clamp auf 1 bis 100, bevor der Wert an das Repository geht. Dort begrenzt SELECT TOP (@limit) die zurueckgegebenen Zeilen bereits in SQL Server. Das garantiert keine konstante Laufzeit und beseitigt die rote SQL-Injection-Schwachstelle nicht. Der Code der Methode selbst setzt keine Benutzereingabe in SQL ein."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 114
+    },
+    {
+      "name": "SqlShop.Orderstatus",
+      "classes": [
+        {
+          "name": "SqlShop.Orderstatus.OrderstatusService",
+          "linesOfCode": 131,
+          "startLine": 1,
+          "endLine": 141,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 131
+    },
+    {
+      "name": "SqlShop.Ordertracking",
+      "classes": [
+        {
+          "name": "SqlShop.Ordertracking.OrdertrackingService",
+          "linesOfCode": 87,
+          "startLine": 1,
+          "endLine": 97,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 87
+    },
+    {
+      "name": "SqlShop.Customers",
+      "classes": [
+        {
+          "name": "SqlShop.Customers.CustomersService",
+          "linesOfCode": 104,
+          "startLine": 1,
+          "endLine": 114,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 104
+    },
+    {
+      "name": "SqlShop.Customerprofiles",
+      "classes": [
+        {
+          "name": "SqlShop.Customerprofiles.CustomerprofilesService",
+          "linesOfCode": 121,
+          "startLine": 1,
+          "endLine": 131,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 121
+    },
+    {
+      "name": "SqlShop.Customerpreferences",
+      "classes": [
+        {
+          "name": "SqlShop.Customerpreferences.CustomerpreferencesService",
+          "linesOfCode": 138,
+          "startLine": 1,
+          "endLine": 148,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 138
+    },
+    {
+      "name": "SqlShop.Addresses",
+      "classes": [
+        {
+          "name": "SqlShop.Addresses.AddressesService",
+          "linesOfCode": 94,
+          "startLine": 1,
+          "endLine": 104,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 94
+    },
+    {
+      "name": "SqlShop.Authentication",
+      "classes": [
+        {
+          "name": "SqlShop.Authentication.AuthenticationService",
+          "linesOfCode": 111,
+          "startLine": 1,
+          "endLine": 121,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 111
+    },
+    {
+      "name": "SqlShop.Sessions",
+      "classes": [
+        {
+          "name": "SqlShop.Sessions.SessionsService",
+          "linesOfCode": 128,
+          "startLine": 1,
+          "endLine": 138,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 128
+    },
+    {
+      "name": "SqlShop.Authorization",
+      "classes": [
+        {
+          "name": "SqlShop.Authorization.AuthorizationService",
+          "linesOfCode": 84,
+          "startLine": 1,
+          "endLine": 94,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 84
+    },
+    {
+      "name": "SqlShop.Products",
+      "classes": [
+        {
+          "name": "SqlShop.Products.ProductsService",
+          "linesOfCode": 101,
+          "startLine": 1,
+          "endLine": 111,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 101
+    },
+    {
+      "name": "SqlShop.Productdetails",
+      "classes": [
+        {
+          "name": "SqlShop.Productdetails.ProductdetailsService",
+          "linesOfCode": 118,
+          "startLine": 1,
+          "endLine": 128,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 118
+    },
+    {
+      "name": "SqlShop.Categories",
+      "classes": [
+        {
+          "name": "SqlShop.Categories.CategoriesService",
+          "linesOfCode": 135,
+          "startLine": 1,
+          "endLine": 145,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 135
+    },
+    {
+      "name": "SqlShop.Catalog",
+      "classes": [
+        {
+          "name": "SqlShop.Catalog.CatalogService",
+          "linesOfCode": 91,
+          "startLine": 1,
+          "endLine": 101,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 91
+    },
+    {
+      "name": "SqlShop.Search",
+      "classes": [
+        {
+          "name": "SqlShop.Search.SearchService",
+          "linesOfCode": 108,
+          "startLine": 1,
+          "endLine": 118,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 108
+    },
+    {
+      "name": "SqlShop.Filters",
+      "classes": [
+        {
+          "name": "SqlShop.Filters.FiltersService",
+          "linesOfCode": 125,
+          "startLine": 1,
+          "endLine": 135,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 125
+    },
+    {
+      "name": "SqlShop.Sorting",
+      "classes": [
+        {
+          "name": "SqlShop.Sorting.SortingService",
+          "linesOfCode": 81,
+          "startLine": 1,
+          "endLine": 91,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 81
+    },
+    {
+      "name": "SqlShop.Pagination",
+      "classes": [
+        {
+          "name": "SqlShop.Pagination.PaginationService",
+          "linesOfCode": 98,
+          "startLine": 1,
+          "endLine": 108,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 98
+    },
+    {
+      "name": "SqlShop.Shoppingcart",
+      "classes": [
+        {
+          "name": "SqlShop.Shoppingcart.ShoppingcartService",
+          "linesOfCode": 115,
+          "startLine": 1,
+          "endLine": 125,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 115
+    },
+    {
+      "name": "SqlShop.Cartitems",
+      "classes": [
+        {
+          "name": "SqlShop.Cartitems.CartitemsService",
+          "linesOfCode": 132,
+          "startLine": 1,
+          "endLine": 142,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 132
+    },
+    {
+      "name": "SqlShop.Checkout",
+      "classes": [
+        {
+          "name": "SqlShop.Checkout.CheckoutService",
+          "linesOfCode": 88,
+          "startLine": 1,
+          "endLine": 98,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 88
+    },
+    {
+      "name": "SqlShop.Payments",
+      "classes": [
+        {
+          "name": "SqlShop.Payments.PaymentsService",
+          "linesOfCode": 105,
+          "startLine": 1,
+          "endLine": 115,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 105
+    },
+    {
+      "name": "SqlShop.Paymentmethods",
+      "classes": [
+        {
+          "name": "SqlShop.Paymentmethods.PaymentmethodsService",
+          "linesOfCode": 122,
+          "startLine": 1,
+          "endLine": 132,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 122
+    },
+    {
+      "name": "SqlShop.Invoices",
+      "classes": [
+        {
+          "name": "SqlShop.Invoices.InvoicesService",
+          "linesOfCode": 139,
+          "startLine": 1,
+          "endLine": 149,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 139
+    },
+    {
+      "name": "SqlShop.Receipts",
+      "classes": [
+        {
+          "name": "SqlShop.Receipts.ReceiptsService",
+          "linesOfCode": 95,
+          "startLine": 1,
+          "endLine": 105,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 95
+    },
+    {
+      "name": "SqlShop.Shipping",
+      "classes": [
+        {
+          "name": "SqlShop.Shipping.ShippingService",
+          "linesOfCode": 112,
+          "startLine": 1,
+          "endLine": 122,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 112
+    },
+    {
+      "name": "SqlShop.Shippingmethods",
+      "classes": [
+        {
+          "name": "SqlShop.Shippingmethods.ShippingmethodsService",
+          "linesOfCode": 129,
+          "startLine": 1,
+          "endLine": 139,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 129
+    },
+    {
+      "name": "SqlShop.Delivery",
+      "classes": [
+        {
+          "name": "SqlShop.Delivery.DeliveryService",
+          "linesOfCode": 85,
+          "startLine": 1,
+          "endLine": 95,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 85
+    },
+    {
+      "name": "SqlShop.Inventory",
+      "classes": [
+        {
+          "name": "SqlShop.Inventory.InventoryService",
+          "linesOfCode": 102,
+          "startLine": 1,
+          "endLine": 112,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 102
+    },
+    {
+      "name": "SqlShop.Warehouses",
+      "classes": [
+        {
+          "name": "SqlShop.Warehouses.WarehousesService",
+          "linesOfCode": 119,
+          "startLine": 1,
+          "endLine": 129,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 119
+    },
+    {
+      "name": "SqlShop.Stockreservations",
+      "classes": [
+        {
+          "name": "SqlShop.Stockreservations.StockreservationsService",
+          "linesOfCode": 136,
+          "startLine": 1,
+          "endLine": 146,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 136
+    },
+    {
+      "name": "SqlShop.Pricing",
+      "classes": [
+        {
+          "name": "SqlShop.Pricing.PricingService",
+          "linesOfCode": 92,
+          "startLine": 1,
+          "endLine": 102,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 92
+    },
+    {
+      "name": "SqlShop.Discounts",
+      "classes": [
+        {
+          "name": "SqlShop.Discounts.DiscountsService",
+          "linesOfCode": 109,
+          "startLine": 1,
+          "endLine": 119,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 109
+    },
+    {
+      "name": "SqlShop.Coupons",
+      "classes": [
+        {
+          "name": "SqlShop.Coupons.CouponsService",
+          "linesOfCode": 126,
+          "startLine": 1,
+          "endLine": 136,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 126
+    },
+    {
+      "name": "SqlShop.Taxes",
+      "classes": [
+        {
+          "name": "SqlShop.Taxes.TaxesService",
+          "linesOfCode": 82,
+          "startLine": 1,
+          "endLine": 92,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 82
+    },
+    {
+      "name": "SqlShop.Returns",
+      "classes": [
+        {
+          "name": "SqlShop.Returns.ReturnsService",
+          "linesOfCode": 99,
+          "startLine": 1,
+          "endLine": 109,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 99
+    },
+    {
+      "name": "SqlShop.Refunds",
+      "classes": [
+        {
+          "name": "SqlShop.Refunds.RefundsService",
+          "linesOfCode": 116,
+          "startLine": 1,
+          "endLine": 126,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 116
+    },
+    {
+      "name": "SqlShop.Notifications",
+      "classes": [
+        {
+          "name": "SqlShop.Notifications.NotificationsService",
+          "linesOfCode": 133,
+          "startLine": 1,
+          "endLine": 143,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 133
+    },
+    {
+      "name": "SqlShop.Email",
+      "classes": [
+        {
+          "name": "SqlShop.Email.EmailService",
+          "linesOfCode": 89,
+          "startLine": 1,
+          "endLine": 99,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 89
+    },
+    {
+      "name": "SqlShop.Templates",
+      "classes": [
+        {
+          "name": "SqlShop.Templates.TemplatesService",
+          "linesOfCode": 106,
+          "startLine": 1,
+          "endLine": 116,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 106
+    },
+    {
+      "name": "SqlShop.Audit",
+      "classes": [
+        {
+          "name": "SqlShop.Audit.AuditService",
+          "linesOfCode": 123,
+          "startLine": 1,
+          "endLine": 133,
+          "methods": [
+            {
+              "name": "RecordSearch",
+              "linesOfCode": 4,
+              "startLine": 12,
+              "endLine": 15,
+              "callsFrom": [
+                "SqlShop.Searchlimits.ProductListService.SearchProducts"
+              ],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Fehlender Kontext im Audit-Eintrag",
+              "vulnerableCode": "public void RecordSearch(string correlationId, int resultCount)\n{\n    _logger.LogInformation(\"Product search completed\");\n}",
+              "fixedCode": "public void RecordSearch(string correlationId, int resultCount)\n{\n    _logger.LogInformation(\n        \"Search {CorrelationId} returned {ResultCount} results\",\n        correlationId, resultCount);\n}",
+              "explanation": "SearchProducts uebergibt eine serverseitig erzeugte Korrelationskennung und die Anzahl der Treffer. Die urspruengliche Methode verwendet diese Werte jedoch nicht, weshalb sich der Eintrag keinem konkreten Suchvorgang zuordnen laesst. Die Korrektur uebergibt beide Werte an die benannten Platzhalter des ILogger. Der rohe Suchwert wird nicht protokolliert. Audit-Eintraege helfen bei der Nachvollziehbarkeit, verhindern aber keine SQL Injection. Zugriffsrechte, Datenschutz und Aufbewahrung fuer Logs muessen separat geregelt werden."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 123
+    },
+    {
+      "name": "SqlShop.Errorhandling",
+      "classes": [
+        {
+          "name": "SqlShop.Errorhandling.ErrorhandlingService",
+          "linesOfCode": 140,
+          "startLine": 1,
+          "endLine": 150,
+          "methods": [
+            {
+              "name": "CreateErrorResponse",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [
+                "SqlShop.Searchlimits.ProductListService.SearchProducts"
+              ],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Interne Fehlerdetails in der Antwort",
+              "vulnerableCode": "public IActionResult CreateErrorResponse(Exception error)\n{\n    var body = new Dictionary<string, object?>\n    {\n        [\"message\"] = error.Message,\n        [\"details\"] = error.StackTrace\n    };\n\n    return new ObjectResult(body)\n    {\n        StatusCode = StatusCodes.Status500InternalServerError\n    };\n}",
+              "fixedCode": "public IActionResult CreateErrorResponse(Exception error)\n{\n    _logger.LogError(error, \"Product search failed\");\n\n    return new ObjectResult(new { message = \"An internal error occurred.\" })\n    {\n        StatusCode = StatusCodes.Status500InternalServerError\n    };\n}",
+              "explanation": "SearchProducts ruft diese Methode auf, wenn bei der Suche oder Protokollierung eine Exception auftritt. Die Eigenschaften Message und StackTrace koennen interne Informationen wie SQL-Details, Pfade oder Klassennamen offenlegen. Die Korrektur protokolliert die Exception mit _logger.LogError serverseitig und sendet nur eine allgemeine Fehlermeldung mit HTTP 500. Das reduziert die Offenlegung interner Informationen, beseitigt aber keine SQL Injection im Repository."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 140
+    },
+    {
+      "name": "SqlShop.Validation",
+      "classes": [
+        {
+          "name": "SqlShop.Validation.ValidationService",
+          "linesOfCode": 96,
+          "startLine": 1,
+          "endLine": 106,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 96
+    },
+    {
+      "name": "SqlShop.Configuration",
+      "classes": [
+        {
+          "name": "SqlShop.Configuration.ConfigurationService",
+          "linesOfCode": 113,
+          "startLine": 1,
+          "endLine": 123,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 113
+    },
+    {
+      "name": "SqlShop.Persistence",
+      "classes": [
+        {
+          "name": "SqlShop.Persistence.PersistenceService",
+          "linesOfCode": 130,
+          "startLine": 1,
+          "endLine": 140,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 130
+    },
+    {
+      "name": "SqlShop.Caching",
+      "classes": [
+        {
+          "name": "SqlShop.Caching.CachingService",
+          "linesOfCode": 86,
+          "startLine": 1,
+          "endLine": 96,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 86
+    },
+    {
+      "name": "SqlShop.Health",
+      "classes": [
+        {
+          "name": "SqlShop.Health.HealthService",
+          "linesOfCode": 103,
+          "startLine": 1,
+          "endLine": 113,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 103
+    },
+    {
+      "name": "SqlShop.Metrics",
+      "classes": [
+        {
+          "name": "SqlShop.Metrics.MetricsService",
+          "linesOfCode": 120,
+          "startLine": 1,
+          "endLine": 130,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 120
+    }
+  ],
+  "lessonTitle": "SQL Injection",
+  "introduction": "SQL Injection entsteht, wenn eine Anwendung Eingaben als Teil eines SQL-Befehls zusammensetzt. Eine Eingabe kann dadurch die Bedeutung der Datenbankabfrage veraendern. Eingabepruefung allein ersetzt die Trennung von SQL-Struktur und Werten nicht. In dieser Lektion untersuchst du die Produktsuche eines Online-Shops.",
+  "cityIntroduction": "Auch diese Stadt hat 50 Namespaces mit je einer Klasse und zwei Methoden. Viertel, Gebaeude und farbige Methodenabschnitte folgen denselben Darstellungsregeln wie in der ersten Lektion. Suche die rote Markierung FindByName und untersuche, wie der eingegebene Produktname zur Datenbank gelangt. Ueber calls from gelangst du zur gelb markierten SearchProducts-Methode; deren calls to verbinden die Suche mit dem Audit-Eintrag und der Fehlerbehandlung. Drei gelbe Markierungen zeigen zusaetzliche Verbesserungsmoeglichkeiten. Vergleiche erst nach deiner eigenen Ueberlegung den Quellcode mit der vorbereiteten Korrektur. Die Farben sind didaktische Markierungen dieses synthetischen Lehrmodells."
+}

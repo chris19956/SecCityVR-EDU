@@ -1,0 +1,2019 @@
+{
+  "projectName": "ShopCity - Bestellungen sicher abrufen",
+  "scenarioDescription": "Synthetisches Lernmodell eines Online-Shops in C# mit ASP.NET Core Web API (.NET 8), ASP.NET Core Authentication und Entity Framework Core. Eine angemeldete Kundin darf ausschliesslich ihre eigenen Bestellungen lesen. Die Entitaet Order besitzt Id (int), CustomerId (string), Items, Total und DeliveryAddress. Die Anmeldung wird serverseitig verifiziert; im Szenario entspricht User.Identity?.Name der CustomerId. Das Attribut [Authorize] verlangt eine Anmeldung. Der OrderController ist ein [ApiController] mit dem Basispfad /orders. _db ist ein injizierter EF-Core-DbContext mit DbSet<Order> Orders. _audit (AuditService), _errors (ErrorhandlingService) und _logger (ILogger) werden per Dependency Injection bereitgestellt. Using-Direktiven, Entitaeten, DbContext-Deklaration, Klassenruempfe und Dependency Injection sind nicht ausgeschrieben. Genau eine rote Markierung liegt in Shop.Orders.OrderController.GetOrder. Die Abfrage beruecksichtigt nur die Bestell-ID, nicht die Objektberechtigung. Beispiel mit ausschliesslich fiktiven Daten: Alice ist als customer-alice angemeldet und darf Bestellung 1001 lesen. Bestellung 1002 gehoert customer-bob. Der fehlerhafte Endpunkt gibt Alice auch Bestellung 1002 zurueck. Korrektur: nach Id UND serverseitig ermittelter CustomerId filtern. Drei gelbe Hinweise betreffen Mengenbegrenzung, Fehlerdetails und Audit-Kontext. Die vier markierten Methoden sind ueber Aufrufe verbunden: GetOrder ruft RecordOrderRead (Audit) und CreateErrorResponse (Fehlerfall) auf; GetMyOrders ruft ebenfalls CreateErrorResponse auf. Die Klasse kann weitere, nicht ausgeschriebene Bestandteile besitzen; LOC und Zeilenbereiche sind synthetische Visualisierungsmetriken. Das Szenario ist keine vollstaendige kompilierbare Anwendung und keine echte statische Analyse. Alle Quellcodeausschnitte werden nur angezeigt, nie ausgefuehrt. Lerneinheit ohne Pflichtfragen: Thema einfuehren, Fundstelle zeigen, Code erklaeren, Auswirkung demonstrieren, Korrektur vorstellen und danach freiwillige Fragen ermoeglichen.",
+  "packages": [
+    {
+      "name": "Shop.Orders",
+      "classes": [
+        {
+          "name": "Shop.Orders.OrderController",
+          "linesOfCode": 80,
+          "startLine": 1,
+          "endLine": 90,
+          "methods": [
+            {
+              "name": "GetOrder",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [
+                "Shop.Audit.AuditService.RecordOrderRead",
+                "Shop.Errorhandling.ErrorhandlingService.CreateErrorResponse"
+              ],
+              "severity": 1,
+              "findingTitle": "Abruf einer Bestellung",
+              "vulnerableCode": "[Authorize]\n[HttpGet(\"{orderId:int}\")]\npublic async Task<IActionResult> GetOrder(int orderId)\n{\n    try\n    {\n        var order = await _db.Orders\n            .FirstOrDefaultAsync(o => o.Id == orderId);\n\n        if (order is null)\n            return NotFound();\n\n        _audit.RecordOrderRead(User.Identity?.Name, orderId);\n        return Ok(order);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "fixedCode": "[Authorize]\n[HttpGet(\"{orderId:int}\")]\npublic async Task<IActionResult> GetOrder(int orderId)\n{\n    try\n    {\n        var customerId = User.Identity?.Name;\n        if (string.IsNullOrWhiteSpace(customerId))\n            return Unauthorized();\n\n        var order = await _db.Orders\n            .FirstOrDefaultAsync(o => o.Id == orderId\n                                   && o.CustomerId == customerId);\n\n        if (order is null)\n            return NotFound();\n\n        _audit.RecordOrderRead(customerId, orderId);\n        return Ok(order);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "explanation": "Broken Access Control in Form von IDOR (Insecure Direct Object Reference): [Authorize] verlangt eine Anmeldung, prueft aber nicht, ob die konkrete Bestellung dem angemeldeten Kunden gehoert. Die Bestell-ID kommt vom Client und kann beliebig veraendert werden. Die Abfrage FirstOrDefaultAsync(o => o.Id == orderId) beruecksichtigt nur diese ID; deshalb kann ein angemeldeter Kunde auch Bestellungen fremder Kunden lesen. Die Korrektur ermittelt die Kundenkennung serverseitig aus der angemeldeten Identitaet (User.Identity?.Name) und filtert nach Id UND CustomerId. Ein verstecktes Feld oder eine schwer zu erratende ID ersetzt diese Pruefung nicht. Fuer nicht vorhandene und fremde Bestellungen antwortet der korrigierte Endpunkt gleichermassen mit HTTP 404. Zusammenhang im Aufrufgraphen: GetOrder ruft nach erfolgreicher Abfrage RecordOrderRead auf (Audit-Eintrag) und im Fehlerfall CreateErrorResponse (Fehlerantwort). Beide Hilfsmethoden sind gelb markiert, weil sie nur Zusatzhinweise betreffen, nicht die Zugriffskontrolle selbst."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 80
+    },
+    {
+      "name": "Shop.Orderitems",
+      "classes": [
+        {
+          "name": "Shop.Orderitems.OrderitemsService",
+          "linesOfCode": 97,
+          "startLine": 1,
+          "endLine": 107,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 97
+    },
+    {
+      "name": "Shop.Orderhistory",
+      "classes": [
+        {
+          "name": "Shop.Orderhistory.OrderhistoryService",
+          "linesOfCode": 114,
+          "startLine": 1,
+          "endLine": 124,
+          "methods": [
+            {
+              "name": "GetMyOrders",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 21,
+              "callsFrom": [],
+              "callsTo": [
+                "Shop.Errorhandling.ErrorhandlingService.CreateErrorResponse"
+              ],
+              "severity": 2,
+              "findingTitle": "Keine Obergrenze fuer die Ergebnismenge",
+              "vulnerableCode": "public async Task<IActionResult> GetMyOrders(int limit, ClaimsPrincipal user)\n{\n    try\n    {\n        var customerId = user.Identity?.Name;\n        if (string.IsNullOrWhiteSpace(customerId))\n            return new UnauthorizedResult();\n\n        var orders = await _db.Orders\n            .Where(o => o.CustomerId == customerId)\n            .OrderBy(o => o.Id)\n            .Take(limit)\n            .ToListAsync();\n\n        return new OkObjectResult(orders);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "fixedCode": "public async Task<IActionResult> GetMyOrders(int limit, ClaimsPrincipal user)\n{\n    try\n    {\n        var customerId = user.Identity?.Name;\n        if (string.IsNullOrWhiteSpace(customerId))\n            return new UnauthorizedResult();\n\n        limit = Math.Clamp(limit, 1, 100);\n\n        var orders = await _db.Orders\n            .Where(o => o.CustomerId == customerId)\n            .OrderBy(o => o.Id)\n            .Take(limit)\n            .ToListAsync();\n\n        return new OkObjectResult(orders);\n    }\n    catch (Exception ex)\n    {\n        return _errors.CreateErrorResponse(ex);\n    }\n}",
+              "explanation": "Der Zugriff ist durch Where(o => o.CustomerId == customerId) bereits auf eigene Bestellungen begrenzt. Der gelbe Hinweis betrifft die fehlende Obergrenze fuer die Ergebnismenge und ist keine weitere Broken-Access-Control-Fundstelle: Take(limit) uebernimmt einen vom Client gelieferten Wert ungeprueft, sodass sehr grosse Abfragen moeglich sind. Die Korrektur begrenzt limit mit Math.Clamp auf 1 bis 100. Zusammenhang im Aufrufgraphen: Tritt bei der Abfrage ein Fehler auf, ruft GetMyOrders wie GetOrder die Methode CreateErrorResponse auf."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 114
+    },
+    {
+      "name": "Shop.Orderstatus",
+      "classes": [
+        {
+          "name": "Shop.Orderstatus.OrderstatusService",
+          "linesOfCode": 131,
+          "startLine": 1,
+          "endLine": 141,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 131
+    },
+    {
+      "name": "Shop.Ordertracking",
+      "classes": [
+        {
+          "name": "Shop.Ordertracking.OrdertrackingService",
+          "linesOfCode": 87,
+          "startLine": 1,
+          "endLine": 97,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 87
+    },
+    {
+      "name": "Shop.Customers",
+      "classes": [
+        {
+          "name": "Shop.Customers.CustomersService",
+          "linesOfCode": 104,
+          "startLine": 1,
+          "endLine": 114,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 104
+    },
+    {
+      "name": "Shop.Customerprofiles",
+      "classes": [
+        {
+          "name": "Shop.Customerprofiles.CustomerprofilesService",
+          "linesOfCode": 121,
+          "startLine": 1,
+          "endLine": 131,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 121
+    },
+    {
+      "name": "Shop.Customerpreferences",
+      "classes": [
+        {
+          "name": "Shop.Customerpreferences.CustomerpreferencesService",
+          "linesOfCode": 138,
+          "startLine": 1,
+          "endLine": 148,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 138
+    },
+    {
+      "name": "Shop.Addresses",
+      "classes": [
+        {
+          "name": "Shop.Addresses.AddressesService",
+          "linesOfCode": 94,
+          "startLine": 1,
+          "endLine": 104,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 94
+    },
+    {
+      "name": "Shop.Authentication",
+      "classes": [
+        {
+          "name": "Shop.Authentication.AuthenticationService",
+          "linesOfCode": 111,
+          "startLine": 1,
+          "endLine": 121,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 111
+    },
+    {
+      "name": "Shop.Sessions",
+      "classes": [
+        {
+          "name": "Shop.Sessions.SessionsService",
+          "linesOfCode": 128,
+          "startLine": 1,
+          "endLine": 138,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 128
+    },
+    {
+      "name": "Shop.Authorization",
+      "classes": [
+        {
+          "name": "Shop.Authorization.AuthorizationService",
+          "linesOfCode": 84,
+          "startLine": 1,
+          "endLine": 94,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 84
+    },
+    {
+      "name": "Shop.Products",
+      "classes": [
+        {
+          "name": "Shop.Products.ProductsService",
+          "linesOfCode": 101,
+          "startLine": 1,
+          "endLine": 111,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 101
+    },
+    {
+      "name": "Shop.Productdetails",
+      "classes": [
+        {
+          "name": "Shop.Productdetails.ProductdetailsService",
+          "linesOfCode": 118,
+          "startLine": 1,
+          "endLine": 128,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 118
+    },
+    {
+      "name": "Shop.Categories",
+      "classes": [
+        {
+          "name": "Shop.Categories.CategoriesService",
+          "linesOfCode": 135,
+          "startLine": 1,
+          "endLine": 145,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 135
+    },
+    {
+      "name": "Shop.Catalog",
+      "classes": [
+        {
+          "name": "Shop.Catalog.CatalogService",
+          "linesOfCode": 91,
+          "startLine": 1,
+          "endLine": 101,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 91
+    },
+    {
+      "name": "Shop.Search",
+      "classes": [
+        {
+          "name": "Shop.Search.SearchService",
+          "linesOfCode": 108,
+          "startLine": 1,
+          "endLine": 118,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 108
+    },
+    {
+      "name": "Shop.Filters",
+      "classes": [
+        {
+          "name": "Shop.Filters.FiltersService",
+          "linesOfCode": 125,
+          "startLine": 1,
+          "endLine": 135,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 125
+    },
+    {
+      "name": "Shop.Sorting",
+      "classes": [
+        {
+          "name": "Shop.Sorting.SortingService",
+          "linesOfCode": 81,
+          "startLine": 1,
+          "endLine": 91,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 81
+    },
+    {
+      "name": "Shop.Pagination",
+      "classes": [
+        {
+          "name": "Shop.Pagination.PaginationService",
+          "linesOfCode": 98,
+          "startLine": 1,
+          "endLine": 108,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 98
+    },
+    {
+      "name": "Shop.Shoppingcart",
+      "classes": [
+        {
+          "name": "Shop.Shoppingcart.ShoppingcartService",
+          "linesOfCode": 115,
+          "startLine": 1,
+          "endLine": 125,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 115
+    },
+    {
+      "name": "Shop.Cartitems",
+      "classes": [
+        {
+          "name": "Shop.Cartitems.CartitemsService",
+          "linesOfCode": 132,
+          "startLine": 1,
+          "endLine": 142,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 132
+    },
+    {
+      "name": "Shop.Checkout",
+      "classes": [
+        {
+          "name": "Shop.Checkout.CheckoutService",
+          "linesOfCode": 88,
+          "startLine": 1,
+          "endLine": 98,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 88
+    },
+    {
+      "name": "Shop.Payments",
+      "classes": [
+        {
+          "name": "Shop.Payments.PaymentsService",
+          "linesOfCode": 105,
+          "startLine": 1,
+          "endLine": 115,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 105
+    },
+    {
+      "name": "Shop.Paymentmethods",
+      "classes": [
+        {
+          "name": "Shop.Paymentmethods.PaymentmethodsService",
+          "linesOfCode": 122,
+          "startLine": 1,
+          "endLine": 132,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 122
+    },
+    {
+      "name": "Shop.Invoices",
+      "classes": [
+        {
+          "name": "Shop.Invoices.InvoicesService",
+          "linesOfCode": 139,
+          "startLine": 1,
+          "endLine": 149,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 139
+    },
+    {
+      "name": "Shop.Receipts",
+      "classes": [
+        {
+          "name": "Shop.Receipts.ReceiptsService",
+          "linesOfCode": 95,
+          "startLine": 1,
+          "endLine": 105,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 95
+    },
+    {
+      "name": "Shop.Shipping",
+      "classes": [
+        {
+          "name": "Shop.Shipping.ShippingService",
+          "linesOfCode": 112,
+          "startLine": 1,
+          "endLine": 122,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 112
+    },
+    {
+      "name": "Shop.Shippingmethods",
+      "classes": [
+        {
+          "name": "Shop.Shippingmethods.ShippingmethodsService",
+          "linesOfCode": 129,
+          "startLine": 1,
+          "endLine": 139,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 129
+    },
+    {
+      "name": "Shop.Delivery",
+      "classes": [
+        {
+          "name": "Shop.Delivery.DeliveryService",
+          "linesOfCode": 85,
+          "startLine": 1,
+          "endLine": 95,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 85
+    },
+    {
+      "name": "Shop.Inventory",
+      "classes": [
+        {
+          "name": "Shop.Inventory.InventoryService",
+          "linesOfCode": 102,
+          "startLine": 1,
+          "endLine": 112,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 102
+    },
+    {
+      "name": "Shop.Warehouses",
+      "classes": [
+        {
+          "name": "Shop.Warehouses.WarehousesService",
+          "linesOfCode": 119,
+          "startLine": 1,
+          "endLine": 129,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 119
+    },
+    {
+      "name": "Shop.Stockreservations",
+      "classes": [
+        {
+          "name": "Shop.Stockreservations.StockreservationsService",
+          "linesOfCode": 136,
+          "startLine": 1,
+          "endLine": 146,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 136
+    },
+    {
+      "name": "Shop.Pricing",
+      "classes": [
+        {
+          "name": "Shop.Pricing.PricingService",
+          "linesOfCode": 92,
+          "startLine": 1,
+          "endLine": 102,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 92
+    },
+    {
+      "name": "Shop.Discounts",
+      "classes": [
+        {
+          "name": "Shop.Discounts.DiscountsService",
+          "linesOfCode": 109,
+          "startLine": 1,
+          "endLine": 119,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 109
+    },
+    {
+      "name": "Shop.Coupons",
+      "classes": [
+        {
+          "name": "Shop.Coupons.CouponsService",
+          "linesOfCode": 126,
+          "startLine": 1,
+          "endLine": 136,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 126
+    },
+    {
+      "name": "Shop.Taxes",
+      "classes": [
+        {
+          "name": "Shop.Taxes.TaxesService",
+          "linesOfCode": 82,
+          "startLine": 1,
+          "endLine": 92,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 82
+    },
+    {
+      "name": "Shop.Returns",
+      "classes": [
+        {
+          "name": "Shop.Returns.ReturnsService",
+          "linesOfCode": 99,
+          "startLine": 1,
+          "endLine": 109,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 99
+    },
+    {
+      "name": "Shop.Refunds",
+      "classes": [
+        {
+          "name": "Shop.Refunds.RefundsService",
+          "linesOfCode": 116,
+          "startLine": 1,
+          "endLine": 126,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 116
+    },
+    {
+      "name": "Shop.Notifications",
+      "classes": [
+        {
+          "name": "Shop.Notifications.NotificationsService",
+          "linesOfCode": 133,
+          "startLine": 1,
+          "endLine": 143,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 133
+    },
+    {
+      "name": "Shop.Email",
+      "classes": [
+        {
+          "name": "Shop.Email.EmailService",
+          "linesOfCode": 89,
+          "startLine": 1,
+          "endLine": 99,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 89
+    },
+    {
+      "name": "Shop.Templates",
+      "classes": [
+        {
+          "name": "Shop.Templates.TemplatesService",
+          "linesOfCode": 106,
+          "startLine": 1,
+          "endLine": 116,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 106
+    },
+    {
+      "name": "Shop.Audit",
+      "classes": [
+        {
+          "name": "Shop.Audit.AuditService",
+          "linesOfCode": 123,
+          "startLine": 1,
+          "endLine": 133,
+          "methods": [
+            {
+              "name": "RecordOrderRead",
+              "linesOfCode": 4,
+              "startLine": 12,
+              "endLine": 15,
+              "callsFrom": [
+                "Shop.Orders.OrderController.GetOrder"
+              ],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Fehlender Kontext im Audit-Eintrag",
+              "vulnerableCode": "public void RecordOrderRead(string? customerId, int orderId)\n{\n    _logger.LogInformation(\"Order opened\");\n}",
+              "fixedCode": "public void RecordOrderRead(string? customerId, int orderId)\n{\n    _logger.LogInformation(\n        \"Customer {CustomerId} opened order {OrderId}\",\n        customerId, orderId);\n}",
+              "explanation": "Der Eintrag ermoeglicht keine Zuordnung zum angefragten Objekt oder zum handelnden Konto, obwohl GetOrder Kundenkennung und Bestell-ID uebergibt. Die Korrektur gibt beide Werte an die benannten Platzhalter des ILogger aus. Ein geeigneter Audit-Kontext verbessert die Nachvollziehbarkeit, ersetzt aber keine Zugriffskontrolle. Datenschutz, Aufbewahrung und Zugriffsrechte fuer Logs sind separat festzulegen. Zusammenhang im Aufrufgraphen: RecordOrderRead wird von GetOrder aufgerufen."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 123
+    },
+    {
+      "name": "Shop.Errorhandling",
+      "classes": [
+        {
+          "name": "Shop.Errorhandling.ErrorhandlingService",
+          "linesOfCode": 140,
+          "startLine": 1,
+          "endLine": 150,
+          "methods": [
+            {
+              "name": "CreateErrorResponse",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [
+                "Shop.Orders.OrderController.GetOrder",
+                "Shop.Orderhistory.OrderhistoryService.GetMyOrders"
+              ],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Interne Fehlerdetails in der Antwort",
+              "vulnerableCode": "public IActionResult CreateErrorResponse(Exception error)\n{\n    var body = new Dictionary<string, object?>\n    {\n        [\"message\"] = error.Message,\n        [\"details\"] = error.StackTrace\n    };\n\n    return new ObjectResult(body)\n    {\n        StatusCode = StatusCodes.Status500InternalServerError\n    };\n}",
+              "fixedCode": "public IActionResult CreateErrorResponse(Exception error)\n{\n    _logger.LogError(error, \"Shop operation failed\");\n\n    return new ObjectResult(new { message = \"An internal error occurred.\" })\n    {\n        StatusCode = StatusCodes.Status500InternalServerError\n    };\n}",
+              "explanation": "Message und StackTrace koennen interne Informationen wie Klassennamen, Pfade oder Datenbankdetails offenlegen. Im Lehrmodell ist dies ein gelber Hinweis. Die Korrektur protokolliert die Exception mit _logger.LogError serverseitig; die HTTP-Antwort enthaelt nur eine allgemeine Fehlermeldung. Zusammenhang im Aufrufgraphen: CreateErrorResponse wird sowohl von GetOrder als auch von GetMyOrders im catch-Block aufgerufen."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 140
+    },
+    {
+      "name": "Shop.Validation",
+      "classes": [
+        {
+          "name": "Shop.Validation.ValidationService",
+          "linesOfCode": 96,
+          "startLine": 1,
+          "endLine": 106,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 96
+    },
+    {
+      "name": "Shop.Configuration",
+      "classes": [
+        {
+          "name": "Shop.Configuration.ConfigurationService",
+          "linesOfCode": 113,
+          "startLine": 1,
+          "endLine": 123,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 113
+    },
+    {
+      "name": "Shop.Persistence",
+      "classes": [
+        {
+          "name": "Shop.Persistence.PersistenceService",
+          "linesOfCode": 130,
+          "startLine": 1,
+          "endLine": 140,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 130
+    },
+    {
+      "name": "Shop.Caching",
+      "classes": [
+        {
+          "name": "Shop.Caching.CachingService",
+          "linesOfCode": 86,
+          "startLine": 1,
+          "endLine": 96,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 86
+    },
+    {
+      "name": "Shop.Health",
+      "classes": [
+        {
+          "name": "Shop.Health.HealthService",
+          "linesOfCode": 103,
+          "startLine": 1,
+          "endLine": 113,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 103
+    },
+    {
+      "name": "Shop.Metrics",
+      "classes": [
+        {
+          "name": "Shop.Metrics.MetricsService",
+          "linesOfCode": 120,
+          "startLine": 1,
+          "endLine": 130,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 120
+    }
+  ],
+  "lessonTitle": "Broken Access Control",
+  "introduction": "Zugriffskontrollen legen fest, welche Daten und Funktionen eine Person verwenden darf. Eine Anmeldung bestaetigt die Identitaet, erlaubt aber nicht automatisch den Zugriff auf alle Datensaetze. Broken Access Control entsteht, wenn die Anwendung ihre Berechtigungsregeln nicht durchsetzt. In dieser Lektion untersuchst du einen Online-Shop, in dem Kunden nur ihre eigenen Bestellungen sehen duerfen.",
+  "cityIntroduction": "Die Stadt modelliert einen Online-Shop: Viertel stehen fuer Packages, Gebaeude fuer Klassen und farbige Abschnitte fuer Methoden. Grundflaeche und Hoehe folgen synthetischen Code-Metriken. Suche die eine rote Methodenmarkierung, waehle sie aus und lies den Code im Info Panel; drei gelbe Markierungen sind zusaetzliche Hinweise. Ueberlege vor dem Loesungsbutton, welche serverseitige Regel der Abruf einhalten muss; Fragen an den Avatar sind freiwillig. Die markierten Methoden haengen zusammen: Folge den Aufrufbeziehungen (calls from / calls to) zwischen GetOrder, RecordOrderRead, CreateErrorResponse und GetMyOrders."
+}

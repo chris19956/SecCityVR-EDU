@@ -1,0 +1,2006 @@
+{
+  "projectName": "DocSpace Training",
+  "scenarioDescription": "Didaktisches Modell eines Dokumentenportals. Genau eine rote IDOR-Fundstelle und drei gelbe Hinweise. C#-Snippets sind Lernmaterial und werden nicht ausgefuehrt. Dokumente haben Id, Title, Content und eine string OwnerId. ASP.NET-Core-Authentifizierung ist eingerichtet; ClaimTypes.NameIdentifier entspricht der OwnerId. _db ist ein EF-Core-Kontext, _logger ein ILogger. Klassenrumpf, using-Anweisungen und Dependency Injection sind im Ausschnitt ausgelassen. Metriken modellieren weitere, nicht ausgeschriebene Klassenanteile; dies ist keine vollstaendige kompilierbare Anwendung.",
+  "packages": [
+    {
+      "name": "docspace.documents",
+      "linesOfCode": 80,
+      "classes": [
+        {
+          "name": "docspace.documents.DocumentController",
+          "linesOfCode": 80,
+          "startLine": 1,
+          "endLine": 90,
+          "methods": [
+            {
+              "name": "GetDocument",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 21,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 1,
+              "findingTitle": "Dokumentzugriff",
+              "vulnerableCode": "[Authorize]\n[HttpGet(\"{documentId:int}\")]\npublic async Task<IActionResult> GetDocument(int documentId)\n{\n    var document = await _db.Documents.FindAsync(documentId);\n    if (document == null)\n        return NotFound();\n\n    return Ok(new { document.Id, document.Title, document.Content });\n}",
+              "fixedCode": "[Authorize]\n[HttpGet(\"{documentId:int}\")]\npublic async Task<IActionResult> GetDocument(int documentId)\n{\n    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;\n    if (string.IsNullOrEmpty(userId))\n        return Unauthorized();\n\n    var document = await _db.Documents.SingleOrDefaultAsync(\n        d => d.Id == documentId && d.OwnerId == userId);\n    if (document == null)\n        return NotFound();\n\n    return Ok(new { document.Id, document.Title, document.Content });\n}",
+              "explanation": "Authenticate ist nicht Authorize: Der Endpunkt verlangt eine Anmeldung, bindet das geladene Dokument aber nicht an die Identitaet. Im Modell darf ein Nutzer nur eigene Dokumente lesen. Die korrigierte Query beruecksichtigt deshalb Id UND OwnerId. Der Nutzerbezeichner stammt aus der serverseitig verifizierten Identitaet, nicht aus einem Request-Parameter."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.users",
+      "linesOfCode": 93,
+      "classes": [
+        {
+          "name": "docspace.users.UsersService",
+          "linesOfCode": 93,
+          "startLine": 1,
+          "endLine": 103,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.authentication",
+      "linesOfCode": 106,
+      "classes": [
+        {
+          "name": "docspace.authentication.AuthenticationService",
+          "linesOfCode": 106,
+          "startLine": 1,
+          "endLine": 116,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.authorization",
+      "linesOfCode": 119,
+      "classes": [
+        {
+          "name": "docspace.authorization.AuthorizationService",
+          "linesOfCode": 119,
+          "startLine": 1,
+          "endLine": 129,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.sessions",
+      "linesOfCode": 132,
+      "classes": [
+        {
+          "name": "docspace.sessions.SessionsService",
+          "linesOfCode": 132,
+          "startLine": 1,
+          "endLine": 142,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.profiles",
+      "linesOfCode": 84,
+      "classes": [
+        {
+          "name": "docspace.profiles.ProfilesService",
+          "linesOfCode": 84,
+          "startLine": 1,
+          "endLine": 94,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.teams",
+      "linesOfCode": 97,
+      "classes": [
+        {
+          "name": "docspace.teams.TeamsService",
+          "linesOfCode": 97,
+          "startLine": 1,
+          "endLine": 107,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.memberships",
+      "linesOfCode": 110,
+      "classes": [
+        {
+          "name": "docspace.memberships.MembershipsService",
+          "linesOfCode": 110,
+          "startLine": 1,
+          "endLine": 120,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.workspaces",
+      "linesOfCode": 123,
+      "classes": [
+        {
+          "name": "docspace.workspaces.WorkspacesService",
+          "linesOfCode": 123,
+          "startLine": 1,
+          "endLine": 133,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.folders",
+      "linesOfCode": 136,
+      "classes": [
+        {
+          "name": "docspace.folders.FoldersService",
+          "linesOfCode": 136,
+          "startLine": 1,
+          "endLine": 146,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.uploads",
+      "linesOfCode": 88,
+      "classes": [
+        {
+          "name": "docspace.uploads.UploadsService",
+          "linesOfCode": 88,
+          "startLine": 1,
+          "endLine": 98,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.downloads",
+      "linesOfCode": 101,
+      "classes": [
+        {
+          "name": "docspace.downloads.DownloadsService",
+          "linesOfCode": 101,
+          "startLine": 1,
+          "endLine": 111,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.previews",
+      "linesOfCode": 114,
+      "classes": [
+        {
+          "name": "docspace.previews.PreviewsService",
+          "linesOfCode": 114,
+          "startLine": 1,
+          "endLine": 124,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.versions",
+      "linesOfCode": 127,
+      "classes": [
+        {
+          "name": "docspace.versions.VersionsService",
+          "linesOfCode": 127,
+          "startLine": 1,
+          "endLine": 137,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.metadata",
+      "linesOfCode": 140,
+      "classes": [
+        {
+          "name": "docspace.metadata.MetadataService",
+          "linesOfCode": 140,
+          "startLine": 1,
+          "endLine": 150,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.tags",
+      "linesOfCode": 92,
+      "classes": [
+        {
+          "name": "docspace.tags.TagsService",
+          "linesOfCode": 92,
+          "startLine": 1,
+          "endLine": 102,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.comments",
+      "linesOfCode": 105,
+      "classes": [
+        {
+          "name": "docspace.comments.CommentsService",
+          "linesOfCode": 105,
+          "startLine": 1,
+          "endLine": 115,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.notifications",
+      "linesOfCode": 118,
+      "classes": [
+        {
+          "name": "docspace.notifications.NotificationsService",
+          "linesOfCode": 118,
+          "startLine": 1,
+          "endLine": 128,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.email",
+      "linesOfCode": 131,
+      "classes": [
+        {
+          "name": "docspace.email.EmailService",
+          "linesOfCode": 131,
+          "startLine": 1,
+          "endLine": 141,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.search",
+      "linesOfCode": 83,
+      "classes": [
+        {
+          "name": "docspace.search.SearchService",
+          "linesOfCode": 83,
+          "startLine": 1,
+          "endLine": 93,
+          "methods": [
+            {
+              "name": "SearchOwnDocuments",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 21,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Unbegrenzte Ergebnismenge",
+              "vulnerableCode": "[Authorize]\npublic async Task<IActionResult> SearchOwnDocuments(int limit)\n{\n    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;\n    if (string.IsNullOrEmpty(userId))\n        return Unauthorized();\n    var results = await _db.Documents.Where(d => d.OwnerId == userId)\n        .OrderBy(d => d.Id).Take(limit).ToListAsync();\n    return Ok(results);\n}",
+              "fixedCode": "[Authorize]\npublic async Task<IActionResult> SearchOwnDocuments(int limit)\n{\n    var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;\n    if (string.IsNullOrEmpty(userId))\n        return Unauthorized();\n    limit = Math.Clamp(limit, 1, 100);\n    var results = await _db.Documents.Where(d => d.OwnerId == userId)\n        .OrderBy(d => d.Id).Take(limit).ToListAsync();\n    return Ok(results);\n}",
+              "explanation": "Die Objektberechtigung ist vorhanden. Dieser Hinweis betrifft eine fehlende Obergrenze fuer die Ergebnismenge, nicht eine zweite Zugriffskontrollluecke."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.filters",
+      "linesOfCode": 96,
+      "classes": [
+        {
+          "name": "docspace.filters.FiltersService",
+          "linesOfCode": 96,
+          "startLine": 1,
+          "endLine": 106,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.sorting",
+      "linesOfCode": 109,
+      "classes": [
+        {
+          "name": "docspace.sorting.SortingService",
+          "linesOfCode": 109,
+          "startLine": 1,
+          "endLine": 119,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.pagination",
+      "linesOfCode": 122,
+      "classes": [
+        {
+          "name": "docspace.pagination.PaginationService",
+          "linesOfCode": 122,
+          "startLine": 1,
+          "endLine": 132,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.audit",
+      "linesOfCode": 135,
+      "classes": [
+        {
+          "name": "docspace.audit.AuditService",
+          "linesOfCode": 135,
+          "startLine": 1,
+          "endLine": 145,
+          "methods": [
+            {
+              "name": "RecordDocumentRead",
+              "linesOfCode": 4,
+              "startLine": 12,
+              "endLine": 15,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Unzureichender Kontext im Audit-Ereignis",
+              "vulnerableCode": "public void RecordDocumentRead(string actorId, int documentId)\n{\n    _logger.LogInformation(\"Document read\");\n}",
+              "fixedCode": "public void RecordDocumentRead(string actorId, int documentId)\n{\n    _logger.LogInformation(\"Actor {ActorId} read document {DocumentId}\",\n        actorId, documentId);\n}",
+              "explanation": "Ein Lernhinweis zur Nachvollziehbarkeit. Ein Audit-Log ersetzt keine Berechtigungspruefung. Aufbewahrung und Datenschutz sind separat zu regeln."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.logging",
+      "linesOfCode": 87,
+      "classes": [
+        {
+          "name": "docspace.logging.LoggingService",
+          "linesOfCode": 87,
+          "startLine": 1,
+          "endLine": 97,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.errorhandling",
+      "linesOfCode": 100,
+      "classes": [
+        {
+          "name": "docspace.errorhandling.ErrorhandlingService",
+          "linesOfCode": 100,
+          "startLine": 1,
+          "endLine": 110,
+          "methods": [
+            {
+              "name": "HandleFailure",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Technische Fehlerdetails in einer API-Antwort",
+              "vulnerableCode": "public IActionResult HandleFailure(Exception error)\n{\n    return StatusCode(500, new\n    {\n        error = error.Message,\n        stackTrace = error.StackTrace\n    });\n}",
+              "fixedCode": "public IActionResult HandleFailure(Exception error)\n{\n    _logger.LogError(error, \"Document operation failed\");\n    return StatusCode(500, new { error = \"An internal error occurred.\" });\n}",
+              "explanation": "Interne Exception-Details gehoeren nicht in die Antwort an den Client. Details serverseitig protokollieren."
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.configuration",
+      "linesOfCode": 113,
+      "classes": [
+        {
+          "name": "docspace.configuration.ConfigurationService",
+          "linesOfCode": 113,
+          "startLine": 1,
+          "endLine": 123,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.validation",
+      "linesOfCode": 126,
+      "classes": [
+        {
+          "name": "docspace.validation.ValidationService",
+          "linesOfCode": 126,
+          "startLine": 1,
+          "endLine": 136,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.serialization",
+      "linesOfCode": 139,
+      "classes": [
+        {
+          "name": "docspace.serialization.SerializationService",
+          "linesOfCode": 139,
+          "startLine": 1,
+          "endLine": 149,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.persistence",
+      "linesOfCode": 91,
+      "classes": [
+        {
+          "name": "docspace.persistence.PersistenceService",
+          "linesOfCode": 91,
+          "startLine": 1,
+          "endLine": 101,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.migrations",
+      "linesOfCode": 104,
+      "classes": [
+        {
+          "name": "docspace.migrations.MigrationsService",
+          "linesOfCode": 104,
+          "startLine": 1,
+          "endLine": 114,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.transactions",
+      "linesOfCode": 117,
+      "classes": [
+        {
+          "name": "docspace.transactions.TransactionsService",
+          "linesOfCode": 117,
+          "startLine": 1,
+          "endLine": 127,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.caching",
+      "linesOfCode": 130,
+      "classes": [
+        {
+          "name": "docspace.caching.CachingService",
+          "linesOfCode": 130,
+          "startLine": 1,
+          "endLine": 140,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.jobs",
+      "linesOfCode": 82,
+      "classes": [
+        {
+          "name": "docspace.jobs.JobsService",
+          "linesOfCode": 82,
+          "startLine": 1,
+          "endLine": 92,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.scheduling",
+      "linesOfCode": 95,
+      "classes": [
+        {
+          "name": "docspace.scheduling.SchedulingService",
+          "linesOfCode": 95,
+          "startLine": 1,
+          "endLine": 105,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.health",
+      "linesOfCode": 108,
+      "classes": [
+        {
+          "name": "docspace.health.HealthService",
+          "linesOfCode": 108,
+          "startLine": 1,
+          "endLine": 118,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.metrics",
+      "linesOfCode": 121,
+      "classes": [
+        {
+          "name": "docspace.metrics.MetricsService",
+          "linesOfCode": 121,
+          "startLine": 1,
+          "endLine": 131,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.tracing",
+      "linesOfCode": 134,
+      "classes": [
+        {
+          "name": "docspace.tracing.TracingService",
+          "linesOfCode": 134,
+          "startLine": 1,
+          "endLine": 144,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.localization",
+      "linesOfCode": 86,
+      "classes": [
+        {
+          "name": "docspace.localization.LocalizationService",
+          "linesOfCode": 86,
+          "startLine": 1,
+          "endLine": 96,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.templates",
+      "linesOfCode": 99,
+      "classes": [
+        {
+          "name": "docspace.templates.TemplatesService",
+          "linesOfCode": 99,
+          "startLine": 1,
+          "endLine": 109,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.exports",
+      "linesOfCode": 112,
+      "classes": [
+        {
+          "name": "docspace.exports.ExportsService",
+          "linesOfCode": 112,
+          "startLine": 1,
+          "endLine": 122,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.imports",
+      "linesOfCode": 125,
+      "classes": [
+        {
+          "name": "docspace.imports.ImportsService",
+          "linesOfCode": 125,
+          "startLine": 1,
+          "endLine": 135,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.quotas",
+      "linesOfCode": 138,
+      "classes": [
+        {
+          "name": "docspace.quotas.QuotasService",
+          "linesOfCode": 138,
+          "startLine": 1,
+          "endLine": 148,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.storage",
+      "linesOfCode": 90,
+      "classes": [
+        {
+          "name": "docspace.storage.StorageService",
+          "linesOfCode": 90,
+          "startLine": 1,
+          "endLine": 100,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.thumbnails",
+      "linesOfCode": 103,
+      "classes": [
+        {
+          "name": "docspace.thumbnails.ThumbnailsService",
+          "linesOfCode": 103,
+          "startLine": 1,
+          "endLine": 113,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.indexing",
+      "linesOfCode": 116,
+      "classes": [
+        {
+          "name": "docspace.indexing.IndexingService",
+          "linesOfCode": 116,
+          "startLine": 1,
+          "endLine": 126,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.retention",
+      "linesOfCode": 129,
+      "classes": [
+        {
+          "name": "docspace.retention.RetentionService",
+          "linesOfCode": 129,
+          "startLine": 1,
+          "endLine": 139,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.preferences",
+      "linesOfCode": 81,
+      "classes": [
+        {
+          "name": "docspace.preferences.PreferencesService",
+          "linesOfCode": 81,
+          "startLine": 1,
+          "endLine": 91,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.featureflags",
+      "linesOfCode": 94,
+      "classes": [
+        {
+          "name": "docspace.featureflags.FeatureflagsService",
+          "linesOfCode": 94,
+          "startLine": 1,
+          "endLine": 104,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docspace.routing",
+      "linesOfCode": 107,
+      "classes": [
+        {
+          "name": "docspace.routing.RoutingService",
+          "linesOfCode": 107,
+          "startLine": 1,
+          "endLine": 117,
+          "methods": [
+            {
+              "name": "Process",
+              "linesOfCode": 12,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "GetModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

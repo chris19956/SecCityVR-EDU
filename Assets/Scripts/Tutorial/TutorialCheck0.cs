@@ -1,13 +1,34 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class TutorialCheck0 : MonoBehaviour
 {
-    // Update is called once per frame
+    [SerializeField] private InputActionProperty menuAction;
+
+    private TutorialTask tutorialTask;
+
+    private void Awake()
+    {
+        tutorialTask = GetComponent<TutorialTask>();
+    }
+
+    private void OnEnable()
+    {
+        if (menuAction.action != null)
+            menuAction.action.Enable();
+    }
+
+    private void OnDisable()
+    {
+        if (menuAction.action != null)
+            menuAction.action.Disable();
+    }
+
     void Update()
     {
-        if (OVRInput.Get(OVRInput.Button.Start))
+        if (menuAction.action != null && menuAction.action.WasPressedThisFrame())
         {
-            gameObject.GetComponent<TutorialTask>().CompleteTask();
+            tutorialTask.CompleteTask();
         }
     }
 }

@@ -1,63 +1,73 @@
 using UnityEngine;
-using Oculus.Interaction;
 using TMPro;
 using UnityEngine.UI;
 
 public class SelectTest : MonoBehaviour
 {
-    [HideInInspector]
-    public CubeInfo method;
+    [HideInInspector] public CubeInfo method;
+    [HideInInspector] public BugInstance[] bugs;
+    private MethodInfo scenarioMethod;
+    private AnalysisReader reader;
+    private Renderer targetRenderer;
+    private Color originalColor;
+    private bool selectionColorApplied;
+    private TeacherController teacher;
+    private int lastSelectionFrame = -1;
 
-    [HideInInspector]
-    public BugInstance[] bugs;
-
-    private Color copyColor;
-
-    public void HandlePointerEvent(PointerEvent pointerEvent)
+    public void InitializeScenario(AnalysisReader owner, MethodInfo data,
+        Canvas canvas, TextMeshProUGUI text, ScrollRect scroll)
     {
-        copyColor = gameObject.GetComponent<Renderer>().material.color;
-        gameObject.GetComponent<Renderer>().material.color = new Color(0.7f, 0.7f, 0.7f);
+        reader = owner;
+        scenarioMethod = data;
+    }
 
-        GameObject textGameObject = GameObject.Find("TextContent");
-        TextMeshProUGUI tmpObject = textGameObject.GetComponent<TextMeshProUGUI>();
-        string textContent = "Full name: " + method.FullName + "\n";
-        textContent += "Lines of code: " + method.LOC + "\n";
-
-        if (bugs.Length > 0)
-        {
-            textContent+=  "Bugs: " + bugs.Length + "\n";
-        }
-        GameObject cvs = GameObject.Find("CenteredInfoCanvas");
-        cvs.GetComponent<Canvas>().enabled = true;
-        cvs.transform.Find("Scroll View/Scrollbar Vertical").GetComponent<Scrollbar>().value = 1;
-
-        AnalysisReader reader = GameObject.Find("Reader").GetComponent<AnalysisReader>();
+    public void OnPointerSelect()
+    {
+        if (method == null || scenarioMethod == null || reader == null) return;
+        if (lastSelectionFrame == Time.frameCount) return;
+        lastSelectionFrame = Time.frameCount;
         reader.currentlySeclected = method;
-
-        foreach (BugInstance bug in bugs)
+        targetRenderer = GetComponent<Renderer>();
+        if (targetRenderer != null && !selectionColorApplied)
         {
-            textContent += "\n<b><u>" + bug.ShortMessage + "</u></b>";
-            textContent += "\nPriority: " + bug.Priority;
-            textContent += "\n" + bug.LongMessage;
-
-            BugPattern pattern = reader.bugCollection.BugPattern.Find(p => p.Abbrev == bug.Abbrev);
-            if (pattern != null)
-            {
-                textContent += ParseBugDetailsHTML(pattern.Details);
-            }
+            originalColor = targetRenderer.material.color;
+            targetRenderer.material.color = new Color(.7f, .7f, .7f);
+            selectionColorApplied = true;
         }
-        tmpObject.text = textContent;
+        reader.InfoPanel?.Show(this, method.FullName, scenarioMethod, false, true);
+        ResolveTeacher();
+        teacher?.ExplainSelectedCode(method.FullName, scenarioMethod);
     }
 
-    public void HandlePointerRelease(PointerEvent pointerEvent)
+    public void ShowSource()
     {
-        gameObject.GetComponent<Renderer>().material.color = copyColor;
+        if (method == null || scenarioMethod == null || reader == null) return;
+        reader.InfoPanel?.Show(this, method.FullName, scenarioMethod, false, false);
+        ResolveTeacher();
+        teacher?.ExplainSelectedCode(method.FullName, scenarioMethod);
     }
 
-    private string ParseBugDetailsHTML(string details)
+    public void ShowSolution()
     {
-        string retStr = details;
-        retStr = retStr.Replace("<p>", "").Replace("</p>", "").Replace("<code>", "<i>").Replace("</code>", "</i>").Replace("<br/>", "<br>").Replace("pre>", "i>").Replace("strong>", "b>").Replace("h3>", "b>").Replace("h2>", "b>");
-        return retStr;
+        if (method == null || scenarioMethod == null || reader == null ||
+            string.IsNullOrWhiteSpace(scenarioMethod.fixedCode)) return;
+        reader.InfoPanel?.Show(this, method.FullName, scenarioMethod, true, false);
+        ResolveTeacher();
+        teacher?.ExplainSelectedSolution(method.FullName, scenarioMethod);
     }
+
+    private void ResolveTeacher()
+    {
+        if (teacher == null) teacher = FindAnyObjectByType<TeacherController>();
+    }
+    public void OnPointerRelease()
+    {
+        if (targetRenderer != null && selectionColorApplied)
+            targetRenderer.material.color = originalColor;
+        selectionColorApplied = false;
+    }
+    private void OnDisable() { OnPointerRelease(); }
+    public void DebugHover() { }
+    [ContextMenu("Debug/Test selection")]
+    private void DebugSelection() { OnPointerSelect(); }
 }

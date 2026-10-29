@@ -1,0 +1,2009 @@
+{
+  "projectName": "ShopCity - Bestellungen sicher abrufen",
+  "scenarioDescription": "Synthetisches Lernmodell eines Online-Shops in Java ab Version 17 mit Spring Web, Spring Security und Spring Data JPA. Eine angemeldete Kundin darf ausschliesslich ihre eigenen Bestellungen lesen. Die Entitaet Order besitzt id (Integer), customerId (String), items, total und deliveryAddress. Die Anmeldung wird serverseitig verifiziert; Authentication wird von Spring Security bereitgestellt. Im Szenario entspricht authentication.getName() der customerId. Die Methodensicherheit ist mit @EnableMethodSecurity aktiviert, sodass @PreAuthorize(\"isAuthenticated()\") eine Anmeldung verlangt. Der OrderController ist ein @RestController mit dem Basispfad /orders. orderRepository ist ein injiziertes Spring-Data-JPA-Repository vom Typ OrderRepository extends JpaRepository<Order, Integer>. Es stellt Optional<Order> findById(Integer id), Optional<Order> findByIdAndCustomerId(Integer id, String customerId) und List<Order> findByCustomerId(String customerId, Pageable pageable) bereit. Die letzte Abfrage verwendet die Seitengroesse und Sortierung aus PageRequest. logger ist ein org.slf4j.Logger. Import-Anweisungen, Entitaeten, Repository-Deklarationen, Klassenruempfe und Dependency Injection sind nicht ausgeschrieben. Genau eine rote Markierung liegt in shop.orders.OrderController.getOrder. Die Abfrage beruecksichtigt nur die Bestell-ID, nicht die Objektberechtigung. Beispiel mit ausschliesslich fiktiven Daten: Alice ist als customer-alice angemeldet und darf Bestellung 1001 lesen. Bestellung 1002 gehoert customer-bob. Der fehlerhafte Endpunkt gibt Alice auch Bestellung 1002 zurueck. Korrektur: nach id UND serverseitig ermittelter customerId filtern. Drei gelbe Hinweise betreffen Mengenbegrenzung, Fehlerdetails und Audit-Kontext. Die Klasse kann weitere, nicht ausgeschriebene Bestandteile besitzen; LOC und Zeilenbereiche sind synthetische Visualisierungsmetriken. Das Szenario ist keine vollstaendige kompilierbare Anwendung und keine echte statische Analyse. Alle Quellcodeausschnitte werden nur angezeigt, nie ausgefuehrt. Lerneinheit ohne Pflichtfragen: Thema einfuehren, Fundstelle zeigen, Code erklaeren, Auswirkung demonstrieren, Korrektur vorstellen und danach freiwillige Fragen ermoeglichen.",
+  "packages": [
+    {
+      "name": "shop.orders",
+      "classes": [
+        {
+          "name": "shop.orders.OrderController",
+          "linesOfCode": 80,
+          "startLine": 1,
+          "endLine": 90,
+          "methods": [
+            {
+              "name": "getOrder",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 23,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 1,
+              "findingTitle": "Abruf einer Bestellung",
+              "vulnerableCode": "@PreAuthorize(\"isAuthenticated()\")\n@GetMapping(\"/{orderId}\")\npublic ResponseEntity<Order> getOrder(@PathVariable(\"orderId\") int orderId) {\n    return orderRepository.findById(orderId)\n        .map(ResponseEntity::ok)\n        .orElseGet(() -> ResponseEntity.notFound().build());\n}",
+              "fixedCode": "@PreAuthorize(\"isAuthenticated()\")\n@GetMapping(\"/{orderId}\")\npublic ResponseEntity<Order> getOrder(@PathVariable(\"orderId\") int orderId,\n                                       Authentication authentication) {\n    String customerId = authentication == null ? null : authentication.getName();\n    if (customerId == null || customerId.isBlank()) {\n        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();\n    }\n\n    return orderRepository.findByIdAndCustomerId(orderId, customerId)\n        .map(ResponseEntity::ok)\n        .orElseGet(() -> ResponseEntity.notFound().build());\n}",
+              "explanation": "Broken Access Control in Form von IDOR: @PreAuthorize(\"isAuthenticated()\") verlangt bei aktivierter Spring-Methodensicherheit eine Anmeldung, prueft aber nicht, ob die konkrete Bestellung dem angemeldeten Kunden gehoert. Die Bestell-ID wird vom Client kontrolliert. Eine andere ID kann deshalb Bestelldaten eines fremden Kunden offenlegen. Die Korrektur verwendet findByIdAndCustomerId, damit die Datenbankabfrage sowohl id als auch customerId beruecksichtigt. Im Szenario liefert authentication.getName() die Kundenkennung aus der serverseitig verifizierten Identitaet; sie wird nicht als frei waehlbarer Request-Parameter uebernommen. Eine zufaellige ID oder das Verstecken eines Buttons ersetzt diese Pruefung nicht. Fehlt die Kundenkennung, wird keine Bestellung ausgegeben. Fuer nicht vorhandene und fremde Bestellungen antwortet der korrigierte Endpunkt gleichermassen mit HTTP 404."
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 80
+    },
+    {
+      "name": "shop.orderitems",
+      "classes": [
+        {
+          "name": "shop.orderitems.OrderitemsService",
+          "linesOfCode": 97,
+          "startLine": 1,
+          "endLine": 107,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 97
+    },
+    {
+      "name": "shop.orderhistory",
+      "classes": [
+        {
+          "name": "shop.orderhistory.OrderhistoryService",
+          "linesOfCode": 114,
+          "startLine": 1,
+          "endLine": 124,
+          "methods": [
+            {
+              "name": "getMyOrders",
+              "linesOfCode": 10,
+              "startLine": 12,
+              "endLine": 21,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Keine Obergrenze fuer die Ergebnismenge",
+              "vulnerableCode": "@PreAuthorize(\"isAuthenticated()\")\npublic ResponseEntity<List<Order>> getMyOrders(int limit, Authentication authentication) {\n    String customerId = authentication == null ? null : authentication.getName();\n    if (customerId == null || customerId.isBlank()) {\n        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();\n    }\n    Pageable page = PageRequest.of(0, limit, Sort.by(\"id\"));\n    List<Order> orders = orderRepository.findByCustomerId(customerId, page);\n    return ResponseEntity.ok(orders);\n}",
+              "fixedCode": "@PreAuthorize(\"isAuthenticated()\")\npublic ResponseEntity<List<Order>> getMyOrders(int limit, Authentication authentication) {\n    String customerId = authentication == null ? null : authentication.getName();\n    if (customerId == null || customerId.isBlank()) {\n        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();\n    }\n    limit = Math.max(1, Math.min(limit, 100));\n    Pageable page = PageRequest.of(0, limit, Sort.by(\"id\"));\n    List<Order> orders = orderRepository.findByCustomerId(customerId, page);\n    return ResponseEntity.ok(orders);\n}",
+              "explanation": "Der Zugriff ist durch findByCustomerId bereits auf eigene Bestellungen begrenzt. Der gelbe Hinweis betrifft die fehlende Obergrenze fuer die Seitengroesse und ist keine weitere Broken-Access-Control-Fundstelle. PageRequest verlangt eine positive Seitengroesse, begrenzt aber grosse positive Werte nicht auf eine fachlich festgelegte Obergrenze. Die Korrektur begrenzt limit auf 1 bis 100."
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 114
+    },
+    {
+      "name": "shop.orderstatus",
+      "classes": [
+        {
+          "name": "shop.orderstatus.OrderstatusService",
+          "linesOfCode": 131,
+          "startLine": 1,
+          "endLine": 141,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 131
+    },
+    {
+      "name": "shop.ordertracking",
+      "classes": [
+        {
+          "name": "shop.ordertracking.OrdertrackingService",
+          "linesOfCode": 87,
+          "startLine": 1,
+          "endLine": 97,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 87
+    },
+    {
+      "name": "shop.customers",
+      "classes": [
+        {
+          "name": "shop.customers.CustomersService",
+          "linesOfCode": 104,
+          "startLine": 1,
+          "endLine": 114,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 104
+    },
+    {
+      "name": "shop.customerprofiles",
+      "classes": [
+        {
+          "name": "shop.customerprofiles.CustomerprofilesService",
+          "linesOfCode": 121,
+          "startLine": 1,
+          "endLine": 131,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 121
+    },
+    {
+      "name": "shop.customerpreferences",
+      "classes": [
+        {
+          "name": "shop.customerpreferences.CustomerpreferencesService",
+          "linesOfCode": 138,
+          "startLine": 1,
+          "endLine": 148,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 138
+    },
+    {
+      "name": "shop.addresses",
+      "classes": [
+        {
+          "name": "shop.addresses.AddressesService",
+          "linesOfCode": 94,
+          "startLine": 1,
+          "endLine": 104,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 94
+    },
+    {
+      "name": "shop.authentication",
+      "classes": [
+        {
+          "name": "shop.authentication.AuthenticationService",
+          "linesOfCode": 111,
+          "startLine": 1,
+          "endLine": 121,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 111
+    },
+    {
+      "name": "shop.sessions",
+      "classes": [
+        {
+          "name": "shop.sessions.SessionsService",
+          "linesOfCode": 128,
+          "startLine": 1,
+          "endLine": 138,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 128
+    },
+    {
+      "name": "shop.authorization",
+      "classes": [
+        {
+          "name": "shop.authorization.AuthorizationService",
+          "linesOfCode": 84,
+          "startLine": 1,
+          "endLine": 94,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 84
+    },
+    {
+      "name": "shop.products",
+      "classes": [
+        {
+          "name": "shop.products.ProductsService",
+          "linesOfCode": 101,
+          "startLine": 1,
+          "endLine": 111,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 101
+    },
+    {
+      "name": "shop.productdetails",
+      "classes": [
+        {
+          "name": "shop.productdetails.ProductdetailsService",
+          "linesOfCode": 118,
+          "startLine": 1,
+          "endLine": 128,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 118
+    },
+    {
+      "name": "shop.categories",
+      "classes": [
+        {
+          "name": "shop.categories.CategoriesService",
+          "linesOfCode": 135,
+          "startLine": 1,
+          "endLine": 145,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 135
+    },
+    {
+      "name": "shop.catalog",
+      "classes": [
+        {
+          "name": "shop.catalog.CatalogService",
+          "linesOfCode": 91,
+          "startLine": 1,
+          "endLine": 101,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 91
+    },
+    {
+      "name": "shop.search",
+      "classes": [
+        {
+          "name": "shop.search.SearchService",
+          "linesOfCode": 108,
+          "startLine": 1,
+          "endLine": 118,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 108
+    },
+    {
+      "name": "shop.filters",
+      "classes": [
+        {
+          "name": "shop.filters.FiltersService",
+          "linesOfCode": 125,
+          "startLine": 1,
+          "endLine": 135,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 125
+    },
+    {
+      "name": "shop.sorting",
+      "classes": [
+        {
+          "name": "shop.sorting.SortingService",
+          "linesOfCode": 81,
+          "startLine": 1,
+          "endLine": 91,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 81
+    },
+    {
+      "name": "shop.pagination",
+      "classes": [
+        {
+          "name": "shop.pagination.PaginationService",
+          "linesOfCode": 98,
+          "startLine": 1,
+          "endLine": 108,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 98
+    },
+    {
+      "name": "shop.shoppingcart",
+      "classes": [
+        {
+          "name": "shop.shoppingcart.ShoppingcartService",
+          "linesOfCode": 115,
+          "startLine": 1,
+          "endLine": 125,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 115
+    },
+    {
+      "name": "shop.cartitems",
+      "classes": [
+        {
+          "name": "shop.cartitems.CartitemsService",
+          "linesOfCode": 132,
+          "startLine": 1,
+          "endLine": 142,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 132
+    },
+    {
+      "name": "shop.checkout",
+      "classes": [
+        {
+          "name": "shop.checkout.CheckoutService",
+          "linesOfCode": 88,
+          "startLine": 1,
+          "endLine": 98,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 88
+    },
+    {
+      "name": "shop.payments",
+      "classes": [
+        {
+          "name": "shop.payments.PaymentsService",
+          "linesOfCode": 105,
+          "startLine": 1,
+          "endLine": 115,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 105
+    },
+    {
+      "name": "shop.paymentmethods",
+      "classes": [
+        {
+          "name": "shop.paymentmethods.PaymentmethodsService",
+          "linesOfCode": 122,
+          "startLine": 1,
+          "endLine": 132,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 122
+    },
+    {
+      "name": "shop.invoices",
+      "classes": [
+        {
+          "name": "shop.invoices.InvoicesService",
+          "linesOfCode": 139,
+          "startLine": 1,
+          "endLine": 149,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 139
+    },
+    {
+      "name": "shop.receipts",
+      "classes": [
+        {
+          "name": "shop.receipts.ReceiptsService",
+          "linesOfCode": 95,
+          "startLine": 1,
+          "endLine": 105,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 95
+    },
+    {
+      "name": "shop.shipping",
+      "classes": [
+        {
+          "name": "shop.shipping.ShippingService",
+          "linesOfCode": 112,
+          "startLine": 1,
+          "endLine": 122,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 112
+    },
+    {
+      "name": "shop.shippingmethods",
+      "classes": [
+        {
+          "name": "shop.shippingmethods.ShippingmethodsService",
+          "linesOfCode": 129,
+          "startLine": 1,
+          "endLine": 139,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 129
+    },
+    {
+      "name": "shop.delivery",
+      "classes": [
+        {
+          "name": "shop.delivery.DeliveryService",
+          "linesOfCode": 85,
+          "startLine": 1,
+          "endLine": 95,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 85
+    },
+    {
+      "name": "shop.inventory",
+      "classes": [
+        {
+          "name": "shop.inventory.InventoryService",
+          "linesOfCode": 102,
+          "startLine": 1,
+          "endLine": 112,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 102
+    },
+    {
+      "name": "shop.warehouses",
+      "classes": [
+        {
+          "name": "shop.warehouses.WarehousesService",
+          "linesOfCode": 119,
+          "startLine": 1,
+          "endLine": 129,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 119
+    },
+    {
+      "name": "shop.stockreservations",
+      "classes": [
+        {
+          "name": "shop.stockreservations.StockreservationsService",
+          "linesOfCode": 136,
+          "startLine": 1,
+          "endLine": 146,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 136
+    },
+    {
+      "name": "shop.pricing",
+      "classes": [
+        {
+          "name": "shop.pricing.PricingService",
+          "linesOfCode": 92,
+          "startLine": 1,
+          "endLine": 102,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 92
+    },
+    {
+      "name": "shop.discounts",
+      "classes": [
+        {
+          "name": "shop.discounts.DiscountsService",
+          "linesOfCode": 109,
+          "startLine": 1,
+          "endLine": 119,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 109
+    },
+    {
+      "name": "shop.coupons",
+      "classes": [
+        {
+          "name": "shop.coupons.CouponsService",
+          "linesOfCode": 126,
+          "startLine": 1,
+          "endLine": 136,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 126
+    },
+    {
+      "name": "shop.taxes",
+      "classes": [
+        {
+          "name": "shop.taxes.TaxesService",
+          "linesOfCode": 82,
+          "startLine": 1,
+          "endLine": 92,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 82
+    },
+    {
+      "name": "shop.returns",
+      "classes": [
+        {
+          "name": "shop.returns.ReturnsService",
+          "linesOfCode": 99,
+          "startLine": 1,
+          "endLine": 109,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 99
+    },
+    {
+      "name": "shop.refunds",
+      "classes": [
+        {
+          "name": "shop.refunds.RefundsService",
+          "linesOfCode": 116,
+          "startLine": 1,
+          "endLine": 126,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 116
+    },
+    {
+      "name": "shop.notifications",
+      "classes": [
+        {
+          "name": "shop.notifications.NotificationsService",
+          "linesOfCode": 133,
+          "startLine": 1,
+          "endLine": 143,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 133
+    },
+    {
+      "name": "shop.email",
+      "classes": [
+        {
+          "name": "shop.email.EmailService",
+          "linesOfCode": 89,
+          "startLine": 1,
+          "endLine": 99,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 89
+    },
+    {
+      "name": "shop.templates",
+      "classes": [
+        {
+          "name": "shop.templates.TemplatesService",
+          "linesOfCode": 106,
+          "startLine": 1,
+          "endLine": 116,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 106
+    },
+    {
+      "name": "shop.audit",
+      "classes": [
+        {
+          "name": "shop.audit.AuditService",
+          "linesOfCode": 123,
+          "startLine": 1,
+          "endLine": 133,
+          "methods": [
+            {
+              "name": "recordOrderRead",
+              "linesOfCode": 4,
+              "startLine": 12,
+              "endLine": 15,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Fehlender Kontext im Audit-Eintrag",
+              "vulnerableCode": "public void recordOrderRead(String customerId, int orderId) {\n    logger.info(\"Order opened\");\n}",
+              "fixedCode": "public void recordOrderRead(String customerId, int orderId) {\n    logger.info(\"Customer {} opened order {}\", customerId, orderId);\n}",
+              "explanation": "Der Eintrag ermoeglicht keine Zuordnung zum angefragten Objekt oder zum handelnden Konto. Die Korrektur uebergibt Kundenkennung und Bestell-ID an die Platzhalter des SLF4J-Loggers. Ein geeigneter Audit-Kontext verbessert die Nachvollziehbarkeit, ersetzt aber keine Zugriffskontrolle. Datenschutz, Aufbewahrung und Zugriffsrechte fuer Logs sind separat festzulegen."
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 123
+    },
+    {
+      "name": "shop.errorhandling",
+      "classes": [
+        {
+          "name": "shop.errorhandling.ErrorhandlingService",
+          "linesOfCode": 140,
+          "startLine": 1,
+          "endLine": 150,
+          "methods": [
+            {
+              "name": "createErrorResponse",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 2,
+              "findingTitle": "Interne Fehlerdetails in der Antwort",
+              "vulnerableCode": "public ResponseEntity<Map<String, Object>> createErrorResponse(Exception error) {\n    Map<String, Object> body = new LinkedHashMap<>();\n    body.put(\"message\", error.getMessage());\n    body.put(\"details\", Arrays.toString(error.getStackTrace()));\n    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);\n}",
+              "fixedCode": "public ResponseEntity<Map<String, Object>> createErrorResponse(Exception error) {\n    logger.error(\"Shop operation failed\", error);\n    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)\n        .body(Map.of(\"message\", \"An internal error occurred.\"));\n}",
+              "explanation": "getMessage() und getStackTrace() koennen interne Informationen offenlegen. Im Lehrmodell ist dies ein gelber Hinweis. Die Korrektur protokolliert die Exception mit logger.error serverseitig; die HTTP-Antwort enthaelt nur eine allgemeine Fehlermeldung."
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 140
+    },
+    {
+      "name": "shop.validation",
+      "classes": [
+        {
+          "name": "shop.validation.ValidationService",
+          "linesOfCode": 96,
+          "startLine": 1,
+          "endLine": 106,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 96
+    },
+    {
+      "name": "shop.configuration",
+      "classes": [
+        {
+          "name": "shop.configuration.ConfigurationService",
+          "linesOfCode": 113,
+          "startLine": 1,
+          "endLine": 123,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 113
+    },
+    {
+      "name": "shop.persistence",
+      "classes": [
+        {
+          "name": "shop.persistence.PersistenceService",
+          "linesOfCode": 130,
+          "startLine": 1,
+          "endLine": 140,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 130
+    },
+    {
+      "name": "shop.caching",
+      "classes": [
+        {
+          "name": "shop.caching.CachingService",
+          "linesOfCode": 86,
+          "startLine": 1,
+          "endLine": 96,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 86
+    },
+    {
+      "name": "shop.health",
+      "classes": [
+        {
+          "name": "shop.health.HealthService",
+          "linesOfCode": 103,
+          "startLine": 1,
+          "endLine": 113,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 103
+    },
+    {
+      "name": "shop.metrics",
+      "classes": [
+        {
+          "name": "shop.metrics.MetricsService",
+          "linesOfCode": 120,
+          "startLine": 1,
+          "endLine": 130,
+          "methods": [
+            {
+              "name": "process",
+              "linesOfCode": 8,
+              "startLine": 12,
+              "endLine": 19,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            },
+            {
+              "name": "getModuleName",
+              "linesOfCode": 4,
+              "startLine": 40,
+              "endLine": 43,
+              "callsFrom": [],
+              "callsTo": [],
+              "severity": 0,
+              "findingTitle": "",
+              "vulnerableCode": "",
+              "fixedCode": "",
+              "explanation": ""
+            }
+          ]
+        }
+      ],
+      "linesOfCode": 120
+    }
+  ],
+  "lessonTitle": "Broken Access Control",
+  "introduction": "Zugriffskontrollen legen fest, welche Daten und Funktionen eine Person verwenden darf. Eine Anmeldung bestaetigt die Identitaet, erlaubt aber nicht automatisch den Zugriff auf alle Datensaetze. Broken Access Control entsteht, wenn die Anwendung ihre Berechtigungsregeln nicht durchsetzt. In dieser Lektion untersuchst du einen Online-Shop, in dem Kunden nur ihre eigenen Bestellungen sehen duerfen.",
+  "cityIntroduction": "Die Stadt modelliert einen Online-Shop: Viertel stehen fuer Packages, Gebaeude fuer Klassen und farbige Abschnitte fuer Methoden. Grundflaeche und Hoehe folgen synthetischen Code-Metriken. Suche die eine rote Methodenmarkierung, waehle sie aus und lies den Code im Info Panel; drei gelbe Markierungen sind zusaetzliche Hinweise. Ueberlege vor dem Loesungsbutton, welche serverseitige Regel der Abruf einhalten muss; Fragen an den Avatar sind freiwillig."
+}

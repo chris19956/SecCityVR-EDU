@@ -1,9 +1,13 @@
 using System;
-using UnityEngine;
 
 [Serializable]
 public class PackageAnalysisResult
 {
+    public string projectName;
+    public string scenarioDescription;
+    public string lessonTitle;
+    public string introduction;
+    public string cityIntroduction;
     public PackageInfo[] packages;
 }
 
@@ -21,8 +25,13 @@ public class MethodInfo
     public int linesOfCode;
     public int startLine;
     public int endLine;
-    public TreeMethodInfo[] callsFrom;
-    public TreeMethodInfo[] callsTo;
+    public string[] callsFrom;
+    public string[] callsTo;
+    public int severity; // 0 = none, 1 = red, 2 = yellow
+    public string findingTitle;
+    public string vulnerableCode;
+    public string fixedCode;
+    public string explanation;
 }
 
 [Serializable]

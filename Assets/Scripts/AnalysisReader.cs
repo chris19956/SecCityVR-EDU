@@ -1,11 +1,10 @@
 using UnityEngine;
-using System.IO;
-using System.Xml.Serialization;
 using System.Linq;
 using System.Collections.Generic;
 using System;
-using Fusion;
 using TMPro;
+using Unity.XR.CoreUtils;
+using UnityEngine.UI;
 
 public class CityMethod
 {
@@ -20,174 +19,325 @@ public class CityMethod
 
 public class AnalysisReader : MonoBehaviour
 {
-    [SerializeField]
-    private TextAsset jsonFile;
+    [Header("Data")]
+    [SerializeField] private TextAsset jsonFile;
+    [SerializeField] private TextAsset xmlFile;
+    [SerializeField] private TextAsset packageAnalysisJson;
 
-    [SerializeField]
-    private TextAsset xmlFile;
+    [Header("Scenario UI (assign scene objects here)")]
+    [SerializeField] private Canvas infoCanvas;
+    [SerializeField] private TextMeshProUGUI codeText;
+    [SerializeField] private ScrollRect codeScroll;
+    [SerializeField] private GameObject basePlateObject;
 
-    [SerializeField]
-    private TextAsset packageAnalysisJson;
+    [Header("Call graph")]
+    [SerializeField] private bool drawCallsAfterGeneration = true;
+    [SerializeField, Min(0.001f)] private float callLineWidth = 0.08f;
+    [SerializeField, Min(0.1f)] private float callArcHeight = 4f;
+    [SerializeField, Range(8, 128)] private int callLineSegments = 32;
 
-    [SerializeField]
-    private GameObject buildingPrefab;
+    private readonly Dictionary<string, CityMethod> methodsByName =
+        new Dictionary<string, CityMethod>(StringComparer.Ordinal);
 
-    [SerializeField]
-    private GameObject linePrefab;
+    private GameObject generatedCityRoot;
 
-    [SerializeField]
-    private float scaleMultiplier = 0.005f;
+    public InfoPanelController InfoPanel { get; private set; }
+    public PackageAnalysisResult CurrentScenario { get; private set; }
 
-    [SerializeField]
-    private float spacingFactor = 0.8f;
+    private readonly HashSet<string> renderedEdges = new HashSet<string>();
 
-    [SerializeField]
-    private float maxHops = 0f;
+    [Header("Prefabs")]
+    [SerializeField] private GameObject buildingPrefab;
+    [SerializeField] private GameObject linePrefab;
 
-    [SerializeField]
-    private float flyingSpeed = 5f;
+    [Header("Layout")]
+    [SerializeField] private float scaleMultiplier = 1.0f;
+    [SerializeField] private float heightMultiplier = 0.01f;
+    [SerializeField] private float spacingFactor = 0.95f;
+    [SerializeField] private float minFootprintSize = 0.5f;
+    [SerializeField] private float maxHops = 0f;
 
-    [SerializeField]
-    private bool onlyPackages = false;
-   
-    [SerializeField]
-    private bool onlyClasses= false;
+    [Header("Filters")]
+    [SerializeField] private bool onlyPackages = false;
+    [SerializeField] private bool onlyClasses = false;
 
-    [SerializeField]
-    public bool guidedReview = false;
+    [Header("Modes")]
+    [SerializeField] public bool guidedReview = false;
+    [SerializeField] public bool offlineMode = false;
 
-    [SerializeField]
-    public bool offlineMode = false;
+    [Header("Project")]
+    [SerializeField] public string ownPackageName = "vr.codecity.scenario";
 
-    [SerializeField]
-    public string ownPackageName = "fr.christophetd.log4shell.vulnerableapp";
-
-    [SerializeField]
-    public GameObject cameraGo;
-
+    [Header("XR Rig")]
+    [SerializeField] private XROrigin xrOrigin;
+    [SerializeField] private Transform rigTransform;
+    [SerializeField] private Camera xrCamera;
 
     List<CityMethod> calls = new List<CityMethod>();
 
-    [HideInInspector]
-    public BugCollection bugCollection;
-
-    [HideInInspector]
-    public CubeInfo currentlySeclected;
+    [HideInInspector] public BugCollection bugCollection;
+    [HideInInspector] public CubeInfo currentlySeclected;
 
     int cityWidth = 0;
     int cityHeight = 0;
 
-    GameObject testLine;
-    GameObject parentMesh;
-    List<GameObject> childMeshes = new List<GameObject>();
+    public GameObject parentMesh;
+    public List<GameObject> childMeshes = new List<GameObject>();
 
     void Awake()
     {
-        testLine = Instantiate(linePrefab, transform.position, Quaternion.identity);
-        testLine.SetActive(false);
+        if (xrOrigin == null)
+        {
+            xrOrigin = FindAnyObjectByType<XROrigin>();
+        }
 
-        generateCityWithPackageAnalysis();
+        if (xrCamera == null && xrOrigin != null)
+        {
+            xrCamera = xrOrigin.Camera;
+        }
 
-        StaticBatchingUtility.Combine(childMeshes.ToArray(), parentMesh);
+        if (xrCamera == null)
+        {
+            xrCamera = Camera.main;
+        }
+
+        InfoPanel = GetComponent<InfoPanelController>();
+
+        if (InfoPanel == null)
+        {
+            InfoPanel = gameObject.AddComponent<InfoPanelController>();
+        }
+
+        InfoPanel.Configure(infoCanvas, codeText, xrCamera);
     }
 
-    void Start()
+    public void generateCityWithPackageAnalysis(string lessonResource)
     {
-        if (!offlineMode)
+        if (string.IsNullOrWhiteSpace(lessonResource))
         {
-            NetworkManager manager = GameObject.Find("Manager").GetComponent<NetworkManager>();
-            manager.JoinOrCreate();
+            Debug.LogError("No lesson resource was selected.", this);
+            return;
         }
-        else
-        {
-            GameObject connectedTextGameObject = GameObject.Find("OnlineLabel").gameObject;
 
-            TextMeshProUGUI tmpObject = connectedTextGameObject.GetComponent<TextMeshProUGUI>();
-            tmpObject.text = "Offline Mode";
+        TextAsset selectedJson = Resources.Load<TextAsset>(lessonResource);
+
+        if (selectedJson == null)
+        {
+            Debug.LogError(
+                $"Lesson JSON could not be loaded from Resources: {lessonResource}",
+                this
+            );
+
+            return;
         }
+
+        packageAnalysisJson = selectedJson;
+        GenerateCityFromJson(packageAnalysisJson.text);
     }
 
-    void Update()
+    public bool GenerateCityFromJson(string json)
     {
-        //https://nbpsblog.b-cdn.net/wp-content/uploads/2021/01/rXDS464cIp.png
-        Vector3 cityCenter = new Vector3(cityWidth / 2, 15, cityHeight / 2);
-
-        // Y Button to teleport to other user
-        if (OVRInput.GetDown(OVRInput.Button.Three))
+        try
         {
-            GameObject otherPlayer = Array.Find(GameObject.FindGameObjectsWithTag("Player"), p => p.GetComponent<NetworkObject>().StateAuthority != NetworkManager.Instance.Runner.LocalPlayer);
-            if (otherPlayer != null)
+            if (string.IsNullOrWhiteSpace(json))
             {
-                cameraGo.transform.position = otherPlayer.transform.position - otherPlayer.transform.forward * 2;
-                cameraGo.transform.LookAt(otherPlayer.transform.position);
+                throw new ArgumentException("Scenario JSON is empty.");
             }
-        }
 
-        // X Button to toggle guided review
-        else if (OVRInput.GetDown(OVRInput.Button.Four))
-        {
-            guidedReview = !guidedReview;
-        }
-        if (guidedReview)
-        {
-            GameObject otherPlayer = Array.Find(GameObject.FindGameObjectsWithTag("Player"), p => p.GetComponent<NetworkObject>().StateAuthority != NetworkManager.Instance.Runner.LocalPlayer);
-            if (otherPlayer != null)
+            var result = JsonUtility.FromJson<PackageAnalysisResult>(json);
+
+            if (result == null ||
+                result.packages == null ||
+                result.packages.Length == 0)
             {
-                cameraGo.transform.position = otherPlayer.transform.position - otherPlayer.transform.forward * 2;
-                return;
+                throw new ArgumentException("Scenario has no packages.");
             }
-        }
 
-        if (OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger) > 0.5f)
-        {
-            cameraGo.transform.position = new Vector3(cameraGo.transform.position.x, cameraGo.transform.position.y + flyingSpeed * Time.deltaTime, cameraGo.transform.position.z);
-        }
-        else if (OVRInput.Get(OVRInput.Axis1D.SecondaryHandTrigger) > 0.5f && cameraGo.transform.position.y > 2)
-        {
-            cameraGo.transform.position = new Vector3(cameraGo.transform.position.x, cameraGo.transform.position.y - flyingSpeed * Time.deltaTime, cameraGo.transform.position.z);
-        }
+            if (buildingPrefab == null ||
+                buildingPrefab.GetComponent<SelectTest>() == null ||
+                buildingPrefab.GetComponent<Renderer>() == null)
+            {
+                throw new ArgumentException(
+                    "Building prefab needs SelectTest and Renderer on its root."
+                );
+            }
 
-        if (OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger) > 0f)
-        {
-            cameraGo.transform.position += Camera.main.transform.forward * flyingSpeed * Time.deltaTime;
+            if (basePlateObject == null)
+            {
+                basePlateObject = GameObject.Find("BasePlate");
+            }
+
+            if (basePlateObject == null ||
+                basePlateObject.GetComponent<Renderer>() == null)
+            {
+                throw new ArgumentException(
+                    "Assign Base Plate Object (a cube with Renderer)."
+                );
+            }
+
+            if (heightMultiplier <= 0 ||
+                scaleMultiplier <= 0 ||
+                spacingFactor <= 0 ||
+                spacingFactor > 1)
+            {
+                throw new ArgumentException(
+                    "Height/scale must be positive; spacing must be in (0,1]."
+                );
+            }
+
+            if (infoCanvas == null || codeText == null)
+            {
+                Debug.LogWarning(
+                    "Assign Info Canvas and Code Text on this scene AnalysisReader.",
+                    this
+                );
+            }
+
+            if (onlyPackages || onlyClasses)
+            {
+                Debug.LogWarning(
+                    "Only Packages/Only Classes hides the method markers. " +
+                    "Disable both for this scenario.",
+                    this
+                );
+            }
+
+            BuildScenarioCity(result);
+            CurrentScenario = result;
+            BuildMethodLookup();
+
+            if (drawCallsAfterGeneration && !onlyPackages && !onlyClasses)
+            {
+                RenderAllCalls();
+            }
+
+            Debug.Log(
+                "Scenario loaded: " +
+                result.packages.Length +
+                " packages, " +
+                result.packages
+                    .SelectMany(p => p.classes)
+                    .SelectMany(c => c.methods)
+                    .Count(m => m.severity == 1) +
+                " red markers, " +
+                result.packages
+                    .SelectMany(p => p.classes)
+                    .SelectMany(c => c.methods)
+                    .Count(m => m.severity == 2) +
+                " yellow markers. Semantic correctness still requires review.",
+                this
+            );
+
+            return true;
         }
-        else if (OVRInput.Get(OVRInput.Button.PrimaryThumbstickDown))
+        catch (Exception ex)
         {
-            cameraGo.transform.position -= Camera.main.transform.forward * flyingSpeed / 2 * Time.deltaTime;
+            Debug.LogError(
+                "[AnalysisReader] Scenario could not be loaded: " + ex.Message,
+                this
+            );
+
+            return false;
         }
     }
 
-    private void generateCityWithPackageAnalysis()
+    private void BuildScenarioCity(PackageAnalysisResult result)
     {
-        TextReader sr = new StringReader(xmlFile.text);
-        XmlSerializer serializer = new XmlSerializer(typeof(BugCollection));
-        bugCollection = (BugCollection)serializer.Deserialize(sr);
-
-        PackageAnalysisResult result = JsonUtility.FromJson<PackageAnalysisResult>(packageAnalysisJson.text);
         PackageInfo[] packages = result.packages;
         int packagesum = packages.Sum(p => p.linesOfCode);
-        cityWidth = (int)Math.Round(packagesum * scaleMultiplier / 100);
-        cityHeight = (int)Math.Round(packagesum * scaleMultiplier / 100);
-        GameObject camera = GameObject.Find("OVRCameraRig");
-        camera.transform.position = new Vector3(cityWidth / 2, 10, cityHeight / 2);
 
-        GameObject basePlate = GameObject.Find("BasePlate");
-        basePlate.name = $"CityCanvas-" + bugCollection.Project.Jar;
-        basePlate.GetComponent<Renderer>().material.color = new Color(0.5f, 0.5f, 0.5f);
-        basePlate.transform.localScale = new Vector3(cityWidth, 0.5f, cityHeight);
-        basePlate.transform.position = new Vector3(cityWidth / 2, 0.25f, cityHeight / 2);
+        cityWidth = Math.Max(
+            20,
+            (int)Math.Round(packagesum * scaleMultiplier / 100)
+        );
+
+        cityHeight = Math.Max(
+            20,
+            (int)Math.Round(packagesum * scaleMultiplier / 100)
+        );
+
+        if (rigTransform != null)
+        {
+            rigTransform.position = new Vector3(
+                cityWidth / 2f,
+                10f,
+                cityHeight / 2f
+            );
+        }
+
+        if (generatedCityRoot != null)
+        {
+            generatedCityRoot.SetActive(false);
+            Destroy(generatedCityRoot);
+        }
+
+        calls.Clear();
+        methodsByName.Clear();
+        renderedEdges.Clear();
+        InfoPanel?.Hide();
+        childMeshes.Clear();
+
+        currentlySeclected = null;
+        bugCollection = null;
+
+        if (infoCanvas != null)
+        {
+            infoCanvas.enabled = false;
+        }
+
+        generatedCityRoot = new GameObject(
+            "GeneratedCity-" + result.projectName
+        );
+
+        GameObject basePlate = basePlateObject;
+        basePlate.name = "CityCanvas-" + result.projectName;
+
+        basePlate.GetComponent<Renderer>().material.color =
+            new Color(0.5f, 0.5f, 0.5f);
+
+        basePlate.transform.localScale = new Vector3(
+            cityWidth,
+            0.5f,
+            cityHeight
+        );
+
+        basePlate.transform.position = new Vector3(
+            cityWidth / 2f,
+            0.25f,
+            cityHeight / 2f
+        );
+
         parentMesh = basePlate;
 
-        IEnumerable<PackageInfo> sortedPackages = packages.OrderByDescending(x => x.linesOfCode).Where(c => c.linesOfCode > 0);
+        var sortedPackages = packages
+            .Where(p => p.linesOfCode > 0)
+            .OrderByDescending(p => p.linesOfCode)
+            .ToArray();
+
         double[] sortedPackageSizes = sortedPackages
-         .Select(x => (double)x.linesOfCode)
-         .ToArray();
-        LayoutRectangle[] packagesRectangles = TreeMap.GetRectangles(sortedPackageSizes, cityWidth, cityHeight);
-        int pkgCount = sortedPackages.Count();
+            .Select(p => (double)p.linesOfCode)
+            .ToArray();
+
+        LayoutRectangle[] packagesRectangles = TreeMap.GetRectangles(
+            sortedPackageSizes,
+            cityWidth,
+            cityHeight
+        );
+
+        int pkgCount = sortedPackages.Length;
 
         for (int i = 0; i < pkgCount; i++)
         {
-            PackageInfo pkg = sortedPackages.ElementAt(i);
+            if (i >= packagesRectangles.Length)
+            {
+                Debug.LogWarning(
+                    $"Kein Layout-Rechteck für Paket {i} vorhanden, überspringe."
+                );
+
+                continue;
+            }
+
+            PackageInfo pkg = sortedPackages[i];
             LayoutRectangle pkgRect = packagesRectangles[i];
             Color pkgColor = new Color(0.75f, 0.75f, 0.75f);
 
@@ -196,6 +346,22 @@ public class AnalysisReader : MonoBehaviour
                 pkgColor = new Color(1, 0f, 1);
             }
 
+            float pkgWidth = Mathf.Min(
+                pkgRect.Width,
+                Mathf.Max(
+                    pkgRect.Width * spacingFactor,
+                    minFootprintSize
+                )
+            );
+
+            float pkgLength = Mathf.Min(
+                pkgRect.Length,
+                Mathf.Max(
+                    pkgRect.Length * spacingFactor,
+                    minFootprintSize
+                )
+            );
+
             GameObject packageContainer = RenderCube(
                 pkg.linesOfCode,
                 $"Package-{i}",
@@ -203,8 +369,8 @@ public class AnalysisReader : MonoBehaviour
                 pkg.name,
                 pkgColor,
                 new Vector3(pkgRect.X, 0.75f, pkgRect.Y),
-                new Vector3(pkgRect.Width * spacingFactor, 0.5f, pkgRect.Length * spacingFactor),
-                basePlate
+                new Vector3(pkgWidth, 0.5f, pkgLength),
+                generatedCityRoot
             );
 
             if (onlyPackages)
@@ -212,21 +378,54 @@ public class AnalysisReader : MonoBehaviour
                 continue;
             }
 
-            IEnumerable<ClassInfo> sortedClasses = pkg.classes.OrderByDescending(c => c.linesOfCode).Where(c => c.linesOfCode > 0);
+            var sortedClasses = pkg.classes
+                .Where(c => c.linesOfCode > 0)
+                .OrderByDescending(c => c.linesOfCode)
+                .ToArray();
+
             double[] sortedClassSizes = sortedClasses
-             .Select(c => (double)c.linesOfCode)
-             .ToArray();
+                .Select(c => (double)c.linesOfCode)
+                .ToArray();
 
-            LayoutRectangle[] classRectangles = TreeMap.GetRectangles(sortedClassSizes, pkgRect.Width * spacingFactor, pkgRect.Length * spacingFactor);
+            LayoutRectangle[] classRectangles = TreeMap.GetRectangles(
+                sortedClassSizes,
+                pkgWidth,
+                pkgLength
+            );
 
-            for (int j = 0; j < classRectangles.Count(); j++)
+            for (int j = 0; j < classRectangles.Length; j++)
             {
-                ClassInfo cls = sortedClasses.ElementAt(j);
+                if (j >= sortedClasses.Length)
+                {
+                    continue;
+                }
+
+                ClassInfo cls = sortedClasses[j];
                 LayoutRectangle clsRect = classRectangles[j];
 
                 float clsX = clsRect.X + pkgRect.X;
                 float clsY = clsRect.Y + pkgRect.Y;
+
                 Color classColor = new Color(0.75f, 0.75f, 0.75f);
+
+                float clsWidth = Mathf.Min(
+                    clsRect.Width,
+                    Mathf.Max(
+                        clsRect.Width * spacingFactor,
+                        minFootprintSize
+                    )
+                );
+
+                float clsLength = Mathf.Min(
+                    clsRect.Length,
+                    Mathf.Max(
+                        clsRect.Length * spacingFactor,
+                        minFootprintSize
+                    )
+                );
+
+                float clsHeight =
+                    cls.linesOfCode * heightMultiplier + 0.005f;
 
                 GameObject classContainer = RenderCube(
                     cls.linesOfCode,
@@ -234,70 +433,101 @@ public class AnalysisReader : MonoBehaviour
                     cls.name,
                     cls.name,
                     classColor,
-                    new Vector3(clsX, cls.linesOfCode / 2 * scaleMultiplier + 1, clsY),
-                    new Vector3(clsRect.Width * spacingFactor, cls.linesOfCode * scaleMultiplier + 0.005f, clsRect.Length * spacingFactor),
+                    new Vector3(
+                        clsX,
+                        cls.linesOfCode / 2f * heightMultiplier + 1,
+                        clsY
+                    ),
+                    new Vector3(clsWidth, clsHeight, clsLength),
                     packageContainer,
                     true,
                     null,
-                    true
-                ); ;
+                    false
+                );
 
                 if (onlyClasses)
                 {
                     continue;
                 }
-                // f�r jede method in class -> add to calls array
+
                 for (int k = 0; k < cls.methods.Count(); k++)
                 {
                     MethodInfo methodFromHierarchy = cls.methods[k];
+
                     int classStart = cls.startLine;
                     int classEnd = cls.endLine;
                     int classHeight = 1 + classEnd - classStart;
-                    float sizeToLocRatio = cls.linesOfCode / (float)classHeight;
+
+                    float sizeToLocRatio =
+                        cls.linesOfCode / (float)classHeight;
 
                     int methodStart = methodFromHierarchy.startLine;
                     int methodEnd = methodFromHierarchy.endLine;
+
                     float methodHeight = 1 + methodEnd - methodStart;
-                    float mappedMethodHeight = methodHeight * sizeToLocRatio;
-                    float methodWidth = clsRect.Width * spacingFactor * 1.1f;
-                    float methodLength = clsRect.Length * spacingFactor * 1.1f;
-                    Color methodColor = new Color(0f, 0f, 1f);
-                    bool renderCubeActive = false;
+                    float mappedMethodHeight =
+                        methodHeight * sizeToLocRatio;
 
-                    // render in red if bug
-                    IEnumerable<BugInstance> bugs = bugCollection.BugInstance.FindAll(b => b.Class.Classname == cls.name);
-                    Method bugMethod = bugs.ToList().Find(b => b.Method?.Name == methodFromHierarchy.name)?.Method;
-                    if (bugMethod != null)
+                    float methodWidth = clsWidth * 1.05f;
+                    float methodLength = clsLength * 1.05f;
+
+                    bool renderCubeActive =
+                        methodFromHierarchy.severity > 0;
+
+                    Color methodColor;
+
+                    if (methodFromHierarchy.severity == 1)
                     {
-
-                        renderCubeActive = true;
-                        methodColor = new Color(1.0f, 0.64f, 0.0f);
-
-                        if (bugs.Select(b => b.Priority).Max() == 1)
-                        {
-                            methodColor = new Color(1, 0, 0);
-                        }
-                        //if (methodFromHierarchy?.callsTo?.Length > 0 || methodFromHierarchy?.callsFrom?.Length > 0)
-                        //{
-                        //    methodColor = new Color(0f, 0f, 1f);
-                        //}
+                        methodColor = Color.red;
+                    }
+                    else if (methodFromHierarchy.severity == 2)
+                    {
+                        methodColor = Color.yellow;
+                    }
+                    else
+                    {
+                        methodColor = Color.blue;
                     }
 
                     GameObject methodContainer = RenderCube(
                         (int)mappedMethodHeight,
-                            $"Method-{k}",
-                            methodFromHierarchy.name,
-                            $"{cls.name}.{methodFromHierarchy.name}",
-                            methodColor,
-                            new Vector3(clsX - (clsRect.Width * spacingFactor * 0.05f), ((methodStart - classStart) * sizeToLocRatio + mappedMethodHeight / 2) * scaleMultiplier + 1, clsY - (clsRect.Length * spacingFactor * 0.05f)),
-                            new Vector3(methodWidth, mappedMethodHeight * scaleMultiplier, methodLength),
-                            classContainer,
-                            renderCubeActive,
-                            bugs.ToArray(),
-                            true
-                        );
+                        $"Method-{k}",
+                        methodFromHierarchy.name,
+                        $"{cls.name}.{methodFromHierarchy.name}",
+                        methodColor,
+                        new Vector3(
+                            clsX - clsWidth * 0.025f,
+                            (
+                                (methodStart - classStart) * sizeToLocRatio +
+                                mappedMethodHeight / 2f
+                            ) * heightMultiplier + 1,
+                            clsY - clsLength * 0.025f
+                        ),
+                        new Vector3(
+                            methodWidth,
+                            mappedMethodHeight * heightMultiplier,
+                            methodLength
+                        ),
+                        classContainer,
+                        renderCubeActive,
+                        null,
+                        false
+                    );
 
-                    // add to calls array
+                    SelectTest selector =
+                        methodContainer.GetComponentInChildren<SelectTest>(true);
+
+                    if (selector != null)
+                    {
+                        selector.InitializeScenario(
+                            this,
+                            methodFromHierarchy,
+                            infoCanvas,
+                            codeText,
+                            codeScroll
+                        );
+                    }
+
                     CityMethod cm = new CityMethod()
                     {
                         name = $"{cls.name}.{methodFromHierarchy.name}",
@@ -311,142 +541,378 @@ public class AnalysisReader : MonoBehaviour
 
                     if (methodFromHierarchy.callsTo?.Length > 0)
                     {
-                        cm.outgoingCalls = methodFromHierarchy.callsTo.Select(c => signatureToPath2(c)).ToList();
+                        cm.outgoingCalls = NormalizeCallNames(
+                            methodFromHierarchy.callsTo
+                        );
                     }
-                    if (methodFromHierarchy?.callsFrom?.Length > 0)
+
+                    if (methodFromHierarchy.callsFrom?.Length > 0)
                     {
-                        cm.incomingCalls = methodFromHierarchy.callsFrom.Select(c => signatureToPath2(c)).ToList();
+                        cm.incomingCalls = NormalizeCallNames(
+                            methodFromHierarchy.callsFrom
+                        );
                     }
+
                     calls.Add(cm);
                 }
-
             }
         }
     }
 
-    private void DrawLineFromMethodToMethod(CityMethod from, CityMethod to)
+    private static List<string> NormalizeCallNames(string[] references)
     {
-        if (from?.gameObject?.transform?.position != null && to?.gameObject?.transform?.position != null)
+        return (references ?? Array.Empty<string>())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private void BuildMethodLookup()
+    {
+        methodsByName.Clear();
+
+        foreach (CityMethod method in calls)
         {
-            from.gameObject.transform.GetChild(0).gameObject.SetActive(true);
-            to.gameObject.transform.GetChild(0).gameObject.SetActive(true);
-
-            Vector3 arcFrom = from.gameObject.transform.position + new Vector3(from.width / 2, 0, from.length / 2);
-            Vector3 arcTo = to.gameObject.transform.position + new Vector3(to.width / 2, 0, to.length / 2);
-            Vector3 midPoint = arcFrom + (arcTo - arcFrom) / 2;
-            if (from.className == to.className)
+            if (methodsByName.ContainsKey(method.name))
             {
-                midPoint.x += 1;
-            }
-            else
-            {
-                midPoint.y = Mathf.Max(arcFrom.y, arcTo.y) + 25;
+                throw new ArgumentException(
+                    "Duplicate method name: " + method.name
+                );
             }
 
-            GameObject testLine = Instantiate(linePrefab, arcFrom, Quaternion.identity);
-            LineRenderer lineRenderer = testLine.transform.Find("LineComponentRenderer").GetComponent<LineRenderer>();
+            methodsByName.Add(method.name, method);
+        }
 
-            DrawQuadraticBezierCurve(lineRenderer, arcFrom, midPoint, arcTo);
-            lineRenderer.startColor = Color.blue;
-            lineRenderer.endColor = Color.white;
-            testLine.transform.parent = from.gameObject.transform;
-            testLine.transform.position = new Vector3(0, 0, 0);
+        foreach (CityMethod method in calls)
+        {
+            foreach (string target in method.outgoingCalls)
+            {
+                if (!methodsByName.ContainsKey(target))
+                {
+                    Debug.LogWarning(
+                        $"Unknown callsTo: {method.name} -> {target}",
+                        this
+                    );
+                }
+            }
+
+            foreach (string source in method.incomingCalls)
+            {
+                if (!methodsByName.ContainsKey(source))
+                {
+                    Debug.LogWarning(
+                        $"Unknown callsFrom: {source} -> {method.name}",
+                        this
+                    );
+                }
+            }
         }
     }
 
-    //https://www.codinblack.com/how-to-draw-lines-circles-or-anything-else-using-linerenderer/
-    void DrawQuadraticBezierCurve(LineRenderer lineRenderer, Vector3 point0, Vector3 point1, Vector3 point2)
+    public void RenderAllCalls()
     {
-        //lineRenderer.positionCount = 3;
-        //lineRenderer.SetPositions(positions);
-        lineRenderer.positionCount = 200;
-        float t = 0f;
-        Vector3 B = new Vector3(0, 0, 0);
-        for (int i = 0; i < lineRenderer.positionCount; i++)
+        if (linePrefab == null)
         {
-            B = (1 - t) * (1 - t) * point0 + 2 * (1 - t) * t * point1 + t * t * point2;
-            lineRenderer.SetPosition(i, B);
-            t += (1 / (float)lineRenderer.positionCount);
+            Debug.LogWarning(
+                "Assign Line Prefab to display call connections.",
+                this
+            );
+
+            return;
         }
+
+        foreach (CityMethod method in calls)
+        {
+            RenderAllCallsForMethod(method);
+        }
+
+        Debug.Log(
+            $"Call graph: {calls.Count} methods, " +
+            $"{renderedEdges.Count} rendered edges.",
+            this
+        );
+    }
+
+    private void DrawLineFromMethodToMethod(
+        CityMethod from,
+        CityMethod to
+    )
+    {
+        if (from?.gameObject == null ||
+            to?.gameObject == null ||
+            linePrefab == null)
+        {
+            return;
+        }
+
+        string edgeKey = from.name + " -> " + to.name;
+
+        if (renderedEdges.Contains(edgeKey))
+        {
+            return;
+        }
+
+        GameObject spawnedLine = Instantiate(
+            linePrefab,
+            generatedCityRoot.transform,
+            false
+        );
+
+        spawnedLine.name = "Call-" + edgeKey;
+        spawnedLine.transform.localScale = Vector3.one;
+        spawnedLine.SetActive(true);
+
+        LineRenderer lineRenderer =
+            spawnedLine.GetComponentInChildren<LineRenderer>(true);
+
+        if (lineRenderer == null)
+        {
+            Debug.LogWarning(
+                "Line Prefab has no LineRenderer, including its children.",
+                this
+            );
+
+            Destroy(spawnedLine);
+            return;
+        }
+
+        for (
+            Transform t = lineRenderer.transform;
+            t != spawnedLine.transform;
+            t = t.parent
+        )
+        {
+            t.gameObject.SetActive(true);
+        }
+
+        lineRenderer.enabled = true;
+        lineRenderer.useWorldSpace = true;
+        lineRenderer.loop = false;
+
+        lineRenderer.widthCurve = AnimationCurve.Linear(
+            0f,
+            1f,
+            1f,
+            1f
+        );
+
+        lineRenderer.widthMultiplier = callLineWidth;
+        lineRenderer.startColor = Color.blue;
+        lineRenderer.endColor = Color.white;
+
+        // RenderCube places its visible cube at this local center.
+        Vector3 start = from.gameObject.transform.TransformPoint(
+            new Vector3(0.5f, 0f, 0.5f)
+        );
+
+        Vector3 end = to.gameObject.transform.TransformPoint(
+            new Vector3(0.5f, 0f, 0.5f)
+        );
+
+        Vector3 control = (start + end) * 0.5f;
+        control.y = Mathf.Max(start.y, end.y) + 2f * callArcHeight;
+
+        if (from.className == to.className)
+        {
+            control.x += callArcHeight;
+        }
+
+        DrawQuadraticBezierCurve(
+            lineRenderer,
+            start,
+            control,
+            end
+        );
+
+        renderedEdges.Add(edgeKey);
+    }
+
+    private void DrawQuadraticBezierCurve(
+        LineRenderer lineRenderer,
+        Vector3 start,
+        Vector3 control,
+        Vector3 end
+    )
+    {
+        int count = Mathf.Max(2, callLineSegments);
+        var points = new Vector3[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = i / (float)(count - 1);
+            float u = 1f - t;
+
+            points[i] =
+                u * u * start +
+                2f * u * t * control +
+                t * t * end;
+        }
+
+        lineRenderer.positionCount = count;
+        lineRenderer.SetPositions(points);
     }
 
     private void RenderAllCallsForMethod(CityMethod method)
     {
-        foreach (string call in method.outgoingCalls)
+        foreach (string targetName in method.outgoingCalls)
         {
-            CityMethod to = calls.Find(m => m.name == call);
-            if (to != null) DrawLineFromMethodToMethod(method, to);
+            if (methodsByName.TryGetValue(
+                targetName,
+                out CityMethod target
+            ))
+            {
+                DrawLineFromMethodToMethod(method, target);
+            }
         }
-        foreach (string call in method.incomingCalls)
+
+        foreach (string sourceName in method.incomingCalls)
         {
-            CityMethod from = calls.Find(m => m.name == call);
-            if (from != null) DrawLineFromMethodToMethod(from, method);
+            if (methodsByName.TryGetValue(
+                sourceName,
+                out CityMethod source
+            ))
+            {
+                DrawLineFromMethodToMethod(source, method);
+            }
         }
     }
 
-    // called via RPC
-    public void RenderCallsForMethodName(string fromName)
+    public void RenderCallsForMethodName(string methodName)
     {
-        CityMethod call = calls.Find(c => c.name == fromName);
-        if (call != null)
+        if (!string.IsNullOrEmpty(methodName) &&
+            methodsByName.TryGetValue(
+                methodName,
+                out CityMethod method
+            ))
         {
-            //RenderCallsForMethodRecursively(call, 0);
-            RenderAllCallsForMethod(call);
+            RenderAllCallsForMethod(method);
         }
         else
         {
-            Debug.Log("nope");
+            Debug.LogWarning(
+                "Method not found: " + methodName,
+                this
+            );
         }
     }
 
-    // called via RPC
     public void RenderCallsForLastSelected()
     {
-        CityMethod call = calls.Find(c => c.name == currentlySeclected.FullName);
-        if (call != null)
+        if (currentlySeclected != null)
         {
-            //RenderCallsForMethodRecursively(call, 0);
-            RenderAllCallsForMethod(call);
-        }
-        else
-        {
-            Debug.Log("nope");
+            RenderCallsForMethodName(currentlySeclected.FullName);
         }
     }
 
-
-    public void RenderCallsForMethodRecursively(CityMethod method, int hops)
+    public void ShowSolutionForLastSelected()
     {
-        if (hops >= maxHops)
+        if (currentlySeclected == null ||
+            !methodsByName.TryGetValue(
+                currentlySeclected.FullName,
+                out CityMethod selected
+            ))
         {
             return;
         }
-        foreach (string call in method.outgoingCalls)
+
+        var selector =
+            selected.gameObject.GetComponentInChildren<SelectTest>(true);
+
+        if (selector != null)
         {
-            CityMethod to = calls.Find(m => m.name == call);
-            if (to != null) DrawLineFromMethodToMethod(method, to);
-            RenderCallsForMethodRecursively(to, hops + 1);
-        }
-        foreach (string call in method.incomingCalls)
-        {
-            CityMethod from = calls.Find(m => m.name == call);
-            if (from != null) DrawLineFromMethodToMethod(from, method);
-            RenderCallsForMethodRecursively(from, hops + 1);
+            selector.ShowSolution();
         }
     }
 
-    private GameObject RenderCube(int loc, string prefix, string name, string fullName, Color color, Vector3 position, Vector3 sizeScaling, GameObject parent, bool active = true, BugInstance[] bugs = null, bool withLOD = false)
+    public void RenderCallsForMethodRecursively(
+        CityMethod method,
+        int hops
+    )
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+
+        RenderCallsRecursive(method, hops, visited);
+    }
+
+    private void RenderCallsRecursive(
+        CityMethod method,
+        int hops,
+        HashSet<string> visited
+    )
+    {
+        if (method == null ||
+            hops >= maxHops ||
+            !visited.Add(method.name))
+        {
+            return;
+        }
+
+        RenderAllCallsForMethod(method);
+
+        foreach (
+            string name in method.outgoingCalls
+                .Concat(method.incomingCalls)
+                .Distinct()
+        )
+        {
+            if (methodsByName.TryGetValue(
+                name,
+                out CityMethod next
+            ))
+            {
+                RenderCallsRecursive(next, hops + 1, visited);
+            }
+        }
+    }
+
+    private GameObject RenderCube(
+        int loc,
+        string prefix,
+        string name,
+        string fullName,
+        Color color,
+        Vector3 position,
+        Vector3 sizeScaling,
+        GameObject parent,
+        bool active = true,
+        BugInstance[] bugs = null,
+        bool withLOD = false
+    )
     {
         GameObject classContainer = new GameObject();
         classContainer.name = $"{prefix}-{name}";
-        GameObject clsBuilding = Instantiate(buildingPrefab, new Vector3(0, 0, 0), Quaternion.identity);
+
+        GameObject clsBuilding = Instantiate(
+            buildingPrefab,
+            Vector3.zero,
+            Quaternion.identity
+        );
+
         clsBuilding.SetActive(active);
-        clsBuilding.GetComponent<SelectTest>().method = new CubeInfo(name, fullName, loc);
-        clsBuilding.GetComponent<SelectTest>().bugs = bugs ?? new BugInstance[0];
+
+        clsBuilding.GetComponent<SelectTest>().method =
+            new CubeInfo(name, fullName, loc);
+
+        clsBuilding.GetComponent<SelectTest>().bugs =
+            bugs ?? new BugInstance[0];
+
         clsBuilding.GetComponent<Renderer>().material.color = color;
-        clsBuilding.GetComponent<LODGroup>().enabled = withLOD;
+
+        var lodGroup = clsBuilding.GetComponent<LODGroup>();
+
+        if (lodGroup != null)
+        {
+            lodGroup.enabled = withLOD;
+        }
+
         clsBuilding.transform.parent = classContainer.transform;
-        clsBuilding.transform.position = new Vector3(0.5f, 0, 0.5f);
+        clsBuilding.transform.localPosition = new Vector3(
+            0.5f,
+            0,
+            0.5f
+        );
+
         if (active)
         {
             childMeshes.Add(clsBuilding);
@@ -459,29 +925,39 @@ public class AnalysisReader : MonoBehaviour
         return classContainer;
     }
 
-    private string signatureToPath2(TreeMethodInfo m)
+    public TextAsset JsonFile
     {
-        string fullPkg = m.signature.Substring(1, m.signature.IndexOf(":") - 1);
-        return fullPkg + "." + m.name;
+        get
+        {
+            return jsonFile;
+        }
+        set
+        {
+            jsonFile = value;
+        }
     }
-}
 
-[Serializable]
-class CallHierarchyAnalysis
-{
-    public CallHierarchyMethod[] callHierarchy;
-}
+    public TextAsset XmlFile
+    {
+        get
+        {
+            return xmlFile;
+        }
+        set
+        {
+            xmlFile = value;
+        }
+    }
 
-[Serializable]
-class CallHierarchyMethod : CallHierarchySignature
-{
-    public CallHierarchySignature[] callsTo;
-    public CallHierarchySignature[] callsFrom;
-}
-
-[Serializable]
-class CallHierarchySignature
-{
-    public string signature;
-    public string method;
+    public TextAsset PackageAnalysisJson
+    {
+        get
+        {
+            return packageAnalysisJson;
+        }
+        set
+        {
+            packageAnalysisJson = value;
+        }
+    }
 }

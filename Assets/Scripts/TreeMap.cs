@@ -25,6 +25,14 @@ public static class TreeMap
 
     public static LayoutRectangle[] GetRectangles(double[] values, double width, double height)
     {
+        if (values == null || values.Length == 0) return Array.Empty<LayoutRectangle>();
+        if (width <= 0 || height <= 0 || double.IsNaN(width) || double.IsNaN(height) ||
+            double.IsInfinity(width) || double.IsInfinity(height))
+            throw new ArgumentException("Treemap dimensions must be finite and positive.");
+        if (values.Any(v => v <= 0 || double.IsNaN(v) || double.IsInfinity(v)))
+            throw new ArgumentException("Treemap weights must be finite and positive.");
+        if (values.Length == 1)
+            return new[] { new LayoutRectangle(0, 0, (float)width, (float)height) };
         for (int i = 1; i < values.Length; i++)
             if (values[i] > values[i - 1])
                 throw new ArgumentException("values must be ordered large to small");
@@ -130,7 +138,7 @@ public static class TreeMap
             remainingElements.Add(elementsInSlice.Last());
             elementsInSlice.RemoveAt(elementsInSlice.Count - 1);
         }
-        return new SliceResult(current, elementsInSlice, remainingElements);
+        return new SliceResult(elementsInSlice.Sum() / total, elementsInSlice, remainingElements);
     }
 
     private static IEnumerable<SliceRectangle> GetRectangles(Slice slice, double width, double height)
