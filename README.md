@@ -11,7 +11,6 @@ SecCityVR-EDU baut darauf eine interaktive Lernumgebung für Studierende und Pro
 - **Tutorial** zur Einführung in die VR-Steuerung und Bedienung
 - **LLM-gestützter Lehrer-Avatar**, der Fragen beantwortet und Schwachstellen erklärt
 - **Spracheingabe und Sprachausgabe** (Speech-to-Text und Text-to-Speech über ElevenLabs)
-- **VR-Fortbewegung** inklusive umschaltbarem Flugmodus
 
 ---
 
@@ -22,11 +21,9 @@ SecCityVR-EDU baut darauf eine interaktive Lernumgebung für Studierende und Pro
 3. [Konfiguration der KI- und Sprachdienste](#konfiguration-der-ki--und-sprachdienste)
 4. [Ausführen im Unity-Editor](#ausführen-im-unity-editor)
 5. [Bedienung](#bedienung)
-6. [Build für Meta Quest (optional)](#build-für-meta-quest-optional)
-7. [Projektstruktur](#projektstruktur)
-8. [Eigene Lernszenarien](#eigene-lernszenarien)
-9. [Fehlerbehebung](#fehlerbehebung)
-10. [Zitation](#zitation)
+6. [Projektstruktur](#projektstruktur)
+7. [Fehlerbehebung](#fehlerbehebung)
+8. [Zitation](#zitation)
 
 ---
 
@@ -116,7 +113,7 @@ Der Lehrer-Avatar nutzt ein LLM über eine OpenAI-kompatible Chat-Completions-AP
 
 Im Repository sind Endpunkt, Modell und Stimme bereits eingetragen. **Es fehlen nur die beiden API-Schlüssel**, die du selbst ergänzen musst.
 
-### Variante A: Konfigurationsdateien (empfohlen für den Editor)
+### Konfigurationsdateien (empfohlen für den Editor)
 
 **LLM:** `Assets/Scripts/LLM/Config/llm-config.json`
 
@@ -141,63 +138,36 @@ Voreingestellt ist das KI-Gateway der Universität Paderborn. Einen Schlüssel d
 
 Den ElevenLabs-Schlüssel erstellst du in deinem [ElevenLabs-Konto](https://elevenlabs.io/app/settings/api-keys). Die `voiceId` legt die Stimme des Lehrers fest und kann durch eine beliebige andere ElevenLabs-Stimme ersetzt werden.
 
-### Variante B: Umgebungsvariablen
-
-Umgebungsvariablen haben Vorrang vor den Konfigurationsdateien:
-
-| Variable | Bedeutung |
-|---|---|
-| `SECCITY_LLM_ENDPOINT` | URL des Chat-Completions-Endpunkts |
-| `SECCITY_LLM_MODEL` | Name des Modells |
-| `SECCITY_LLM_API_KEY` | API-Schlüssel des LLM-Dienstes |
-| `SECCITY_ELEVENLABS_API_KEY` | API-Schlüssel für ElevenLabs |
-| `SECCITY_ELEVENLABS_VOICE_ID` | ElevenLabs-Stimme für die Sprachausgabe |
-
-Beispiel für die Windows-PowerShell (anschließend Unity Hub **neu starten**):
-
-```powershell
-setx SECCITY_LLM_API_KEY "<dein-api-key>"
-setx SECCITY_ELEVENLABS_API_KEY "<dein-elevenlabs-api-key>"
-```
-
-### Reihenfolge beim Laden
-
-1. Umgebungsvariable, falls gesetzt
-2. Datei unter `Application.persistentDataPath` (`llm-config.json` bzw. `speech-config.json`), z. B. für Builds auf der Quest
-3. Nur im Editor: die Datei unter `Assets/Scripts/...`
-
-> **Sicherheitshinweis:** Committe niemals echte API-Schlüssel. Damit eingetragene Schlüssel nicht versehentlich ins Repository gelangen, kannst du lokale Änderungen an den beiden Dateien von Git ignorieren lassen:
->
-> ```bash
-> git update-index --skip-worktree Assets/Scripts/LLM/Config/llm-config.json
-> git update-index --skip-worktree Assets/Scripts/SpeechTransformation/Config/speech-config.json
-> ```
->
-> Alternativ verwendest du die Umgebungsvariablen aus Variante B.
-
----
 
 ## Ausführen im Unity-Editor
 
 ### 1. Headset verbinden
 
-1. Starte die **Meta Quest Link** bzw. **Meta Horizon Link**-App auf dem PC.
+#### Variante A SteamVR:
+
+1. Installiere die Steam Link App aus dem Meta Quest Store auf das Headset, installiere Steam und SteamVR auf dem Host PC und setze SteamVR als standard OpenXR Runtime.
+2. Verbinde dein Headset über die Steam Link App mit dem Computer.
+
+#### Variante B Meta Horizon Link:
+
+1. Starte die **Meta Horizon Link**-App auf dem PC.
 2. Aktiviere unter **Einstellungen → Allgemein** die Optionen **Unbekannte Quellen** und **OpenXR Runtime: Meta Quest Link als aktive Runtime festlegen**.
 3. Verbinde die Quest per USB-C-Kabel oder Air Link und aktiviere in der Brille **Quest Link**.
+
 
 ### 2. Szene öffnen
 
 1. Navigiere im **Project**-Fenster zu `Assets/Scenes`.
 2. Öffne die Szene **`CodeCityScene.unity`** per Doppelklick. Es ist die einzige Szene des Projekts und bereits in den Build Profiles eingetragen.
 
-### 3. Play Mode starten
+### 3. Mit dem Uni-Paderborn VPN verbinden
+
+### 4. Play Mode starten
 
 1. Prüfe, dass die Konsole (**Window → General → Console**) keine roten Kompilierfehler anzeigt.
 2. Klicke oben im Editor auf **Play** (▶).
 3. Setze die Brille auf. Die Anwendung startet mit dem Hauptmenü.
 4. Mit einem erneuten Klick auf **Play** beendest du den Play Mode.
-
-> Ohne angeschlossenes Headset startet die Szene zwar, ist aber nur eingeschränkt bedienbar. Zum Testen ohne Brille kann der **XR Device Simulator** des XR Interaction Toolkit verwendet werden (**Window → Package Manager → XR Interaction Toolkit → Samples → XR Device Simulator**).
 
 ---
 
@@ -207,7 +177,7 @@ setx SECCITY_ELEVENLABS_API_KEY "<dein-elevenlabs-api-key>"
 
 1. **Hauptmenü** → Start
 2. **Modusauswahl**
-   - **Freier Modus:** Code-Stadt eigenständig erkunden
+   - **Freier Modus:** Fragen an den Avatar stellen
    - **Geführtes Lernen:** Lektion auswählen
      - Lektion 1: *Broken Access Control*
      - Lektion 2: *SQL Injection*
@@ -220,34 +190,12 @@ setx SECCITY_ELEVENLABS_API_KEY "<dein-elevenlabs-api-key>"
 |---|---|
 | Bewegen | Linker Thumbstick |
 | Drehen | Rechter Thumbstick |
-| Gebäude / UI auswählen | Mit dem Controller zeigen und Trigger drücken |
-| Flugmodus ein/aus | über die im Projekt hinterlegte *Fly*-Aktion |
-| Frage an den Lehrer stellen | Aufnahme-Button im Menü oder über die hinterlegte *Record*-Aktion; erneut drücken zum Beenden |
+| Gebäude / UI auswählen | Mit dem Controller zeigen und Grab Button drücken |
+| Flugmodus ein/aus | A-Button |
+| Frage an den Lehrer stellen | Y-Button |
+| Menü öffnen | X-Button |
 | Nächste Erklärung | Button **Weiter** am Lehrer-Panel |
 
-Die konkreten Tastenbelegungen für *Fly* und *Record* sind im Inspector der Komponenten `FlightToggle` und `TeacherController` als `InputActionReference` hinterlegt und können dort angepasst werden.
-
----
-
-## Build für Meta Quest (optional)
-
-1. **File → Build Profiles** öffnen.
-2. Plattform **Android** auswählen und **Switch Platform** klicken.
-3. Unter **Scene List** prüfen, dass `Assets/Scenes/CodeCityScene.unity` aktiviert ist. Das ist im Repository bereits voreingestellt.
-4. Unter **Project Settings → XR Plug-in Management → Android** **OpenXR** und die **Meta XR Feature Group** aktivieren.
-5. Quest per USB verbinden. Der Entwicklermodus muss aktiviert sein.
-6. Unter **Run Device** die Quest auswählen und **Build And Run** klicken.
-
-Für die KI- und Sprachdienste müssen die Dateien `llm-config.json` und `speech-config.json` im `persistentDataPath` der App auf der Quest liegen:
-
-```bash
-adb push llm-config.json /sdcard/Android/data/<package-name>/files/
-adb push speech-config.json /sdcard/Android/data/<package-name>/files/
-```
-
-Den `<package-name>` findest du unter **Project Settings → Player → Other Settings → Package Name**.
-
----
 
 ## Projektstruktur
 
@@ -276,19 +224,6 @@ SecCityVR-EDU/
 ├── Packages/                       # Paketabhängigkeiten (manifest.json)
 └── ProjectSettings/                # Unity-Projekteinstellungen
 ```
-
----
-
-## Eigene Lernszenarien
-
-Lernszenarien sind JSON-Dateien in `Assets/Resources/Scenarios/`. Sie beschreiben Pakete, Klassen, Methoden, Aufrufbeziehungen und Schwachstellen, aus denen `AnalysisReader` die Code-Stadt erzeugt.
-
-So fügst du ein neues Szenario hinzu:
-
-1. Kopiere ein vorhandenes Szenario, z. B. `ShopCity_SQLInjection.json`, und passe es an.
-2. Lege die Datei in `Assets/Resources/Scenarios/` ab.
-3. Ergänze in `MainMenuController.cs` eine Methode, die `analysisReader.generateCityWithPackageAnalysis("Scenarios/<Dateiname ohne .json>")` aufruft.
-4. Verknüpfe die Methode im Inspector mit einem neuen Button im Panel **Guided Learning**.
 
 ---
 
