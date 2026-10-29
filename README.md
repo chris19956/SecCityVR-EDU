@@ -80,7 +80,6 @@ Alternativ kannst du das Repository auf GitHub über **Code → Download ZIP** h
 1. Öffne den **Unity Hub**.
 2. Wechsle zu **Installs → Install Editor**.
 3. Installiere **Unity 6000.4.8f1**. Falls die Version nicht direkt angezeigt wird, findest du sie im [Unity-Download-Archiv](https://unity.com/releases/editor/archive).
-4. Wähle bei Bedarf das Modul **Android Build Support** aus, wenn du später eine eigenständige Quest-Version erstellen möchtest.
 
 ### 3. Projekt in Unity öffnen
 
