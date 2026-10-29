@@ -1,5 +1,5 @@
 {
   "endpoint": "https://ai-gateway.uni-paderborn.de/v1/chat/completions",
   "model": "hs-de.qwen3.8-27b-no-think",
-  "apiKey": "sk-cZ8jvJTCwXEWEgj42L0ctw"
+  "apiKey": ""
 }
