@@ -313,11 +313,3 @@ So fügst du ein neues Szenario hinzu:
 SecCityVR-EDU basiert auf SecCityVR:
 
 > Dennis Wüppelmann and Enes Yigitbas. 2025. *SecCityVR: Visualization and Collaborative Exploration of Software Vulnerabilities in Virtual Reality.* In Evaluation and Assessment in Software Engineering (EASE '25), June 17–20, 2025, Istanbul, Turkiye. ACM, New York, NY, USA, 11 pages. https://doi.org/10.1145/3756681.3756939
-
----
-
-## Danksagung
-
-- Ursprüngliches Projekt: [dewue/SecCityVR](https://github.com/dewue/SecCityVR)
-- Lehrer-Avatar: *Space Robot Kyle* (Unity Technologies)
-- Meta XR SDK, Unity XR Interaction Toolkit und OpenXR
