@@ -35,15 +35,14 @@ SecCityVR-EDU baut darauf eine interaktive Lernumgebung für Studierende und Pro
 |---|---|
 | Unity Hub | aktuelle Version |
 | Unity Editor | **6000.4.8f1** (Unity 6). Andere Versionen können Paket- oder Importfehler verursachen. |
-| Unity-Module | *Android Build Support* inkl. *OpenJDK* und *Android SDK & NDK Tools* (nur für den Quest-Build erforderlich) |
+| Unity-Module | *Android Build Support* inkl. *OpenJDK* und *Android SDK & NDK Tools* |
 | Git | aktuelle Version |
-| IDE | Visual Studio 2022 oder JetBrains Rider (optional) |
 | Meta Quest Link / Meta Horizon Link | für die Ausführung im Editor mit einer Quest-Brille unter Windows |
 
 ### Hardware
 
 - Windows-PC mit VR-fähiger Grafikkarte
-- VR-Headset mit OpenXR-Unterstützung, empfohlen **Meta Quest 2, 3 oder Pro**, inklusive Touch-Controllern
+- VR-Headset: **Meta Quest 2, 3 oder Pro**, inklusive Touch-Controllern
 - Verbindung per USB-C-Kabel (Link) oder WLAN (Air Link)
 - Mikrofon für die Spracheingabe (das Headset-Mikrofon genügt)
 
@@ -141,13 +140,6 @@ Den ElevenLabs-Schlüssel erstellst du in deinem [ElevenLabs-Konto](https://elev
 ## Ausführen im Unity-Editor
 
 ### 1. Headset verbinden
-
-#### Variante A SteamVR:
-
-1. Installiere die Steam Link App aus dem Meta Quest Store auf das Headset, installiere Steam und SteamVR auf dem Host PC und setze SteamVR als standard OpenXR Runtime.
-2. Verbinde dein Headset über die Steam Link App mit dem Computer.
-
-#### Variante B Meta Horizon Link:
 
 1. Starte die **Meta Horizon Link**-App auf dem PC.
 2. Aktiviere unter **Einstellungen → Allgemein** die Optionen **Unbekannte Quellen** und **OpenXR Runtime: Meta Quest Link als aktive Runtime festlegen**.
