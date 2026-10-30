@@ -37,7 +37,8 @@ public class TeacherController : MonoBehaviour
         CityIntroduction,
         Exploration,
         Inspection,
-        Solution
+        Solution,
+        Completed
     }
 
     public LessonPhase Phase { get; private set; }
